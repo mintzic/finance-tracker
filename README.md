@@ -1,5 +1,60 @@
 # Welcome to React Router!
 
+## Desktop app (Windows, macOS, and Linux)
+
+The Electron app bundles the React Router frontend, local backend, SQLite database
+support, and migrations. End users do not need Node.js or a separate server.
+Development and packaging require Node.js 24 and npm.
+
+```bash
+npm ci
+npm run desktop:start
+```
+
+Create installers on the target operating system:
+
+```bash
+npm run desktop:build
+```
+
+Installers are written to `release/`: Windows NSIS `.exe`, macOS `.dmg` and `.zip`,
+and Linux `.AppImage` and `.deb`. Builds default to the machine's architecture.
+For an Intel Mac build on macOS, run `npm run desktop:build -- --x64`; for Apple
+Silicon, use `--arm64`. Native compilation may require platform developer tools
+when SQLite prebuilt binaries are unavailable.
+
+`npm run desktop:pack` creates an unpacked application for inspection.
+After building, `npm run desktop:test` checks migrations, persistence, local server
+access controls, static assets, and exports. `npm run desktop:smoke` opens the app
+against a temporary database and checks that the dashboard renders.
+
+Desktop packaging rebuilds SQLite for Electron. Before switching back to the web
+server or Node-based tests, run `npm run web:rebuild`. Desktop start rebuilds it
+for Electron again automatically.
+
+The [desktop workflow](.github/workflows/desktop.yml) builds on Windows, macOS,
+and Linux when manually dispatched or when a `v*` tag is pushed. It tests the
+packaged app and uploads installers as workflow artifacts; it does not publish
+releases. The initial workflow produces unsigned builds. Public distribution
+should configure platform signing credentials and macOS notarization. App icons
+currently use Electron's default icon.
+
+Desktop data is stored separately from the web app's `data/` directory:
+
+- Windows: `%APPDATA%/Finance Tracker/`
+- macOS: `~/Library/Application Support/Finance Tracker/`
+- Linux: `$XDG_CONFIG_HOME/Finance Tracker/` (usually `~/.config/Finance Tracker/`)
+
+Each folder contains `finance.sqlite` and `receipts/`. Migrations run automatically
+at startup. Existing web data is not automatically imported. To move an existing
+workspace, close both apps and copy the database and receipts together. If SQLite
+WAL files are present, use a SQLite backup or copy the complete database file set
+while the source app is closed. Each installation is independent and has no sync.
+
+The local backend listens only on loopback on a random port and requires a random
+session credential. The window uses sandboxing and context isolation without Node
+integration. New windows and navigation to external origins are blocked.
+
 This tracker opens directly into a single workspace without sign-in or user accounts. Financial records belong to the workspace. Anyone who can reach the server can view and edit the workspace, including exports and receipts.
 
 Run `npm run migrate` before starting the app on a new or existing database. The shared-workspace migration preserves financial records and removes the old authentication tables and user ID columns. Budgets with the same month and category are combined by adding their amounts.

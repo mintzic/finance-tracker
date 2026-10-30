@@ -1,0 +1,30 @@
+appId: com.financetracker.desktop
+productName: Finance Tracker
+directories:
+  output: release
+files:
+  - build/**/*
+  - desktop/**/*
+  - migrations/**/*.sql
+  - package.json
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+npmRebuild: true
+mac:
+  category: public.app-category.finance
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  category: Finance
+  maintainer: Finance Tracker contributors
+  target:
+    - AppImage
+    - deb

@@ -9,3 +9,4 @@
 .env.*
 !.env.example
 /coverage/
+/release/

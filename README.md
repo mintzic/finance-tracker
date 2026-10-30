@@ -37,7 +37,8 @@ and Linux when manually dispatched or when a `v*` tag is pushed. It tests the
 packaged app and uploads installers as workflow artifacts; it does not publish
 releases. The initial workflow produces unsigned builds. Public distribution
 should configure platform signing credentials and macOS notarization. App icons
-currently use Electron's default icon.
+use a sleeping cat design. Replace `desktop/resources/icon.png` with a square
+1024 × 1024 PNG and rebuild to use your own icon on all three platforms.
 
 Desktop data is stored separately from the web app's `data/` directory:
 

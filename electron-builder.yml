@@ -2,6 +2,7 @@ appId: com.financetracker.desktop
 productName: Finance Tracker
 directories:
   output: release
+  buildResources: desktop/resources
 files:
   - build/**/*
   - desktop/**/*
@@ -12,17 +13,20 @@ asarUnpack:
   - node_modules/better-sqlite3/**/*
 npmRebuild: true
 mac:
+  icon: desktop/resources/icon.png
   category: public.app-category.finance
   target:
     - dmg
     - zip
 win:
+  icon: desktop/resources/icon.png
   target:
     - nsis
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 linux:
+  icon: desktop/resources/icon.png
   category: Finance
   maintainer: Finance Tracker contributors
   target:

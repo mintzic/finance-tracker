@@ -15,6 +15,7 @@ if (smoke) setTimeout(() => showError(new Error('Desktop smoke test timed out'))
 
 function createWindow() {
   window = new BrowserWindow({
+    icon: join(app.getAppPath(), 'desktop/resources/icon.png'),
     width: 1440, height: 960, minWidth: 900, minHeight: 640,
     show: !smoke, backgroundColor: '#ffffff',
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },

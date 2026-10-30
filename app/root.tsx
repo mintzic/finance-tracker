@@ -2,8 +2,9 @@ import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration }
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import catIcon from "../desktop/resources/icon.png";
 
-export const links: Route.LinksFunction = () => [];
+export const links: Route.LinksFunction = () => [{ rel: "icon", type: "image/png", href: catIcon }];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

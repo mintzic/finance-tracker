@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTable, tableFeatures, flexRender, type ColumnDef } from "@tanstack/react-table";
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from "lucide-react";
 import { money } from "../lib/money";
 import type { Entry } from "../lib/ledger.server";
 
@@ -132,7 +132,12 @@ export function TransactionTable({
           ))}
         </tbody>
       </table>
-      {!rows.length && <div className="empty small">No transactions for this selection. A fresh start.</div>}
+      {!rows.length && (
+        <div className="empty small">
+          <Cat size={26} strokeWidth={1.5} aria-hidden="true" />
+          <p>All quiet here. No transactions for this selection.</p>
+        </div>
+      )}
     </div>
   );
 }

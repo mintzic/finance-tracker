@@ -124,15 +124,11 @@ small {
   letter-spacing: -1.2px;
   margin: 0 11px 31px;
 }
-.brand-mark {
-  width: 34px;
-  height: 35px;
-  background: #b99aff;
-  color: #25212f;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.brand-cat {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .brand-dot {
   color: #b99aff;
@@ -188,6 +184,28 @@ nav .active-dot {
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 24px;
+}
+.cat-companion {
+  margin: 0 4px 18px;
+  padding: 16px;
+  border: 1px solid #30463e;
+  border-radius: 12px;
+  background: #17251f;
+  color: #b7cdbf;
+}
+.cat-companion > svg {
+  color: #d8e4d8;
+  margin-bottom: 9px;
+}
+.cat-companion p {
+  font-size: 12px;
+  line-height: 1.65;
+}
+.cat-companion > span {
+  display: block;
+  margin-top: 9px;
+  font-size: 10px;
+  color: #92ac9e;
 }
 .sidebar-note {
   border: 1px solid #302b38;
@@ -299,6 +317,13 @@ nav .active-dot {
   color: #b99aff;
   font-size: 26px;
   margin-left: 8px;
+}
+.heading-paw {
+  display: inline-block;
+  vertical-align: baseline;
+  margin-left: 12px;
+  color: #b7cdbf;
+  transform: rotate(12deg);
 }
 .heading-actions {
   display: flex;
@@ -541,6 +566,13 @@ nav .active-dot {
   position: relative;
   min-width: 205px;
   width: 47%;
+}
+.donut-empty-ring {
+  width: 188px;
+  height: 188px;
+  margin: 13.5px auto;
+  border: 23px solid #34313e;
+  border-radius: 50%;
 }
 .donut-label {
   position: absolute;
@@ -924,7 +956,29 @@ tbody tr:hover {
 }
 .trend-chart {
   padding: 15px 17px 5px;
-  height: 280px;
+  min-height: 280px;
+  min-width: 0;
+}
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px;
+  text-align: center;
+  color: #b7cdbf;
+}
+.chart-empty p {
+  max-width: 290px;
+  color: #aaa6bd;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.chart-series-note {
+  padding: 6px 8px 12px;
+  color: #aaa6bd;
+  font-size: 11px;
 }
 .chart-note {
   padding: 10px 22px 20px;

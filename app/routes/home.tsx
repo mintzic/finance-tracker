@@ -22,7 +22,8 @@ import {
   CreditCard,
   Coins,
   ArrowRight,
-  Sparkles,
+  Cat,
+  PawPrint,
   Menu,
   Target,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { SpendingChart, TrendChart } from "../components/charts";
 import { Button } from "../components/ui/button";
 import { WorkspaceCover } from "../components/workspace-cover";
 import type { Entry } from "../lib/ledger.server";
+import catIcon from "../../desktop/resources/icon.png";
 
 export async function loader({ request }: Route.LoaderArgs) {
   return dashboard(new URL(request.url));
@@ -120,10 +122,8 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobile ? "mobile-open" : ""}`}>
-        <Link to="/" className="brand">
-          <span className="brand-mark">
-            <Wallet size={21} />
-          </span>
+        <Link to="/" className="brand" aria-label="Folio home">
+          <img className="brand-cat" src={catIcon} alt="" width="42" height="42" />
           folio<span className="brand-dot">.</span>
         </Link>
         <button className="mobile-close icon-button" onClick={() => setMobile(false)} aria-label="Close navigation">
@@ -154,6 +154,11 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </button>
         </nav>
         <div className="sidebar-bottom">
+          <div className="cat-companion">
+            <Cat size={24} strokeWidth={1.5} aria-hidden="true" />
+            <p>A little set aside.<br />A little peace of mind.</p>
+            <span>Small steps. Steady habits.</span>
+          </div>
           <Link to={href("import")} className="utility-link">
             <Upload size={16} />
             Import & export
@@ -182,7 +187,9 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
               <h1>
                 {d.section === "dashboard" ? "A clearer picture." : title}
-                <span className="heading-dot">{d.section === "dashboard" ? " ✳" : ""}</span>
+                {d.section === "dashboard" && (
+                  <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />
+                )}
               </h1>
               <p className="muted">
                 {d.section === "dashboard"
@@ -233,8 +240,8 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           {!d.wallets.length && (
             <div className="onboarding panel">
               <div>
-                <Sparkles />
-                <h2>Your next chapter starts here.</h2>
+                <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
+                <h2>Make yourself at home.</h2>
                 <p className="muted">
                   Create your first account, or explore with clearly labelled fictional demo data.
                 </p>
@@ -844,7 +851,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Empty({ text }: { text: string }) {
   return (
     <div className="empty panel">
-      <Wallet size={28} />
+      <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
       <p>{text}</p>
     </div>
   );

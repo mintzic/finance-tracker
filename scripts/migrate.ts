@@ -13,7 +13,18 @@ for(const name of readdirSync('migrations').filter(n=>n.endsWith('.sql')).sort()
   const checksum = createHash('sha256').update(sql).digest('hex');
   const previous = db.prepare('SELECT checksum FROM _migrations WHERE name=?').get(name) as {checksum:string}|undefined;
   if(previous && previous.checksum !== checksum) throw new Error(`Applied migration changed: ${name}`);
-  if(!previous) db.transaction(()=>{db.exec(sql);db.prepare('INSERT INTO _migrations VALUES (?,?)').run(name,checksum);})();
+  if(!previous) {
+    if(name === '0003_shared_workspace.sql') {
+      const backup = `${path}.before-shared-workspace-${Date.now()}.bak`;
+      await db.backup(backup);
+      console.log(`Database backup: ${backup}`);
+    }
+    db.transaction(()=>{
+      db.exec(sql);
+      if(db.pragma('foreign_key_check').length) throw new Error(`Foreign key check failed: ${name}`);
+      db.prepare('INSERT INTO _migrations VALUES (?,?)').run(name,checksum);
+    })();
+  }
 }
 db.close();
 console.log(`Migrations complete: ${path}`);

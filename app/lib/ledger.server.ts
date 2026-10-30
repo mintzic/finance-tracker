@@ -9,7 +9,6 @@ import { expenseCategories, incomeCategories } from "./categories";
 
 export type Entry = {
   id: string;
-  user_id: string;
   kind: string;
   date: string;
   description: string;
@@ -38,20 +37,19 @@ export function positive(value: string) {
   return amount;
 }
 
-export function owned(
+export function record(
   database: Database.Database,
   table: "wallets" | "entries" | "goals" | "subscriptions" | "contributions",
   id: string,
-  user: string,
 ) {
-  const row = database.prepare(`SELECT * FROM ${table} WHERE id=? AND user_id=?`).get(id, user) as
+  const row = database.prepare(`SELECT * FROM ${table} WHERE id=?`).get(id) as
     | Record<string, unknown>
     | undefined;
   if (!row) throw new Error("Record not found.");
   return row;
 }
 
-export function parseEntry(database: Database.Database, user: string, form: FormData) {
+export function parseEntry(database: Database.Database, form: FormData) {
   const kind = text(form, "kind");
 
   if (!["income", "expense", "transfer"].includes(kind)) {
@@ -59,9 +57,9 @@ export function parseEntry(database: Database.Database, user: string, form: Form
   }
 
   const walletId = text(form, "wallet_id");
-  const wallet = owned(database, "wallets", walletId, user);
+  const wallet = record(database, "wallets", walletId);
   const id = String(form.get("id") || "");
-  const previous = id ? owned(database, "entries", id, user) : null;
+  const previous = id ? record(database, "entries", id) : null;
 
   if (wallet.archived && previous?.wallet_id !== walletId) {
     throw new Error("Choose an active account.");
@@ -71,7 +69,7 @@ export function parseEntry(database: Database.Database, user: string, form: Form
 
   if (kind === "transfer") {
     destinationId = text(form, "destination_id");
-    const destination = owned(database, "wallets", destinationId, user);
+    const destination = record(database, "wallets", destinationId);
 
     if (destination.archived && previous?.destination_id !== destinationId) {
       throw new Error("Choose an active destination.");
@@ -94,7 +92,6 @@ export function parseEntry(database: Database.Database, user: string, form: Form
 
   return {
     id: id || randomUUID(),
-    userId: user,
     kind,
     date: validDate(text(form, "date")),
     description: text(form, "description"),
@@ -106,14 +103,14 @@ export function parseEntry(database: Database.Database, user: string, form: Form
   };
 }
 
-export function saveEntry(database: Database.Database, user: string, form: FormData) {
-  const value = parseEntry(database, user, form);
+export function saveEntry(database: Database.Database, form: FormData) {
+  const value = parseEntry(database, form);
 
   database.transaction(() => {
     if (form.get("id")) {
       database
         .prepare(
-          "UPDATE entries SET kind=?,date=?,description=?,amount=?,wallet_id=?,destination_id=?,category=?,notes=?,fingerprint=NULL WHERE id=? AND user_id=?",
+          "UPDATE entries SET kind=?,date=?,description=?,amount=?,wallet_id=?,destination_id=?,category=?,notes=?,fingerprint=NULL WHERE id=?",
         )
         .run(
           value.kind,
@@ -125,7 +122,6 @@ export function saveEntry(database: Database.Database, user: string, form: FormD
           value.category,
           value.notes,
           value.id,
-          user,
         );
     } else {
       drizzle(database).insert(entries).values(value).run();
@@ -134,8 +130,8 @@ export function saveEntry(database: Database.Database, user: string, form: FormD
 
   return value.id;
 }
-export function balances(database: Database.Database, user: string, through = "9999-12-31"): Wallet[] {
-  return database.prepare(balancesSQL).all(through, through, user) as Wallet[];
+export function balances(database: Database.Database, through = "9999-12-31"): Wallet[] {
+  return database.prepare(balancesSQL).all(through, through) as Wallet[];
 }
 
 export function fingerprint(entry: {

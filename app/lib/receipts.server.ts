@@ -57,8 +57,6 @@ export async function removeReceiptFile(id: string) {
   });
 }
 
-export function receiptFor(entry: string, user: string) {
-  return sqlite.prepare("SELECT id FROM receipts WHERE entry_id=? AND user_id=?").get(entry, user) as
-    | { id: string }
-    | undefined;
+export function receiptFor(entry: string) {
+  return sqlite.prepare("SELECT id FROM receipts WHERE entry_id=?").get(entry) as { id: string } | undefined;
 }

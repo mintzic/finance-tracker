@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { sqlite } from "../db/connection.server";
-import { owned, positive, text, saveEntry, expenseCategories } from "./ledger.server";
+import { record, positive, text, saveEntry, expenseCategories } from "./ledger.server";
 import { minor, monthRange, validDate, today } from "./money";
 import { commitImport, previewImport, type ImportRow } from "./import.server";
 import { stageReceipt, receiptFor, removeReceiptFile } from "./receipts.server";
 
 export type ActionResult = { error?: string; message?: string; preview?: ImportRow[]; csv?: string };
 
-export async function mutate(user: string, form: FormData): Promise<ActionResult> {
+export async function mutate(form: FormData): Promise<ActionResult> {
   const intent = text(form, "intent");
   const id = String(form.get("id") || "");
 
@@ -17,14 +17,14 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
 
     try {
       sqlite.transaction(() => {
-        const entryId = saveEntry(sqlite, user, form);
-        previous = receiptFor(entryId, user);
+        const entryId = saveEntry(sqlite, form);
+        previous = receiptFor(entryId);
         if (receipt || form.get("remove_receipt") === "on")
-          sqlite.prepare("DELETE FROM receipts WHERE entry_id=? AND user_id=?").run(entryId, user);
+          sqlite.prepare("DELETE FROM receipts WHERE entry_id=?").run(entryId);
         if (receipt)
           sqlite
-            .prepare("INSERT INTO receipts(id,user_id,entry_id,filename,mime,size) VALUES (?,?,?,?,?,?)")
-            .run(receipt.id, user, entryId, receipt.filename, receipt.mime, receipt.size);
+            .prepare("INSERT INTO receipts(id,entry_id,filename,mime,size) VALUES (?,?,?,?,?)")
+            .run(receipt.id, entryId, receipt.filename, receipt.mime, receipt.size);
       })();
     } catch (error) {
       if (receipt) await removeReceiptFile(receipt.id);
@@ -36,9 +36,9 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
   }
 
   if (intent === "delete_entry") {
-    owned(sqlite, "entries", id, user);
-    const receipt = receiptFor(id, user);
-    sqlite.prepare("DELETE FROM entries WHERE id=? AND user_id=?").run(id, user);
+    record(sqlite, "entries", id);
+    const receipt = receiptFor(id);
+    sqlite.prepare("DELETE FROM entries WHERE id=?").run(id);
     if (receipt) await removeReceiptFile(receipt.id);
     return { message: "Transaction deleted. Account balances updated." };
   }
@@ -47,14 +47,14 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
     const name = text(form, "name", 80),
       opening = minor(text(form, "opening"));
     if (id) {
-      owned(sqlite, "wallets", id, user);
+      record(sqlite, "wallets", id);
       sqlite
-        .prepare("UPDATE wallets SET name=?,opening=?,archived=? WHERE id=? AND user_id=?")
-        .run(name, opening, form.get("archived") === "on" ? 1 : 0, id, user);
+        .prepare("UPDATE wallets SET name=?,opening=?,archived=? WHERE id=?")
+        .run(name, opening, form.get("archived") === "on" ? 1 : 0, id);
     } else
       sqlite
-        .prepare("INSERT INTO wallets(id,user_id,name,opening) VALUES (?,?,?,?)")
-        .run(randomUUID(), user, name, opening);
+        .prepare("INSERT INTO wallets(id,name,opening) VALUES (?,?,?)")
+        .run(randomUUID(), name, opening);
     return { message: "Account saved. Balances recalculated." };
   }
 
@@ -65,17 +65,17 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
     if (!expenseCategories.includes(category)) throw new Error("Choose an expense category.");
     sqlite
       .prepare(
-        "INSERT INTO budgets(id,user_id,month,category,amount) VALUES (?,?,?,?,?) ON CONFLICT(user_id,month,category) DO UPDATE SET amount=excluded.amount",
+        "INSERT INTO budgets(id,month,category,amount) VALUES (?,?,?,?) ON CONFLICT(month,category) DO UPDATE SET amount=excluded.amount",
       )
-      .run(randomUUID(), user, month, category, positive(text(form, "amount")));
+      .run(randomUUID(), month, category, positive(text(form, "amount")));
   } else if (intent === "delete_budget") {
-    sqlite.prepare("DELETE FROM budgets WHERE id=? AND user_id=?").run(id, user);
+    sqlite.prepare("DELETE FROM budgets WHERE id=?").run(id);
   } else if (intent === "subscription") {
     const wallet = text(form, "wallet_id");
-    const w = owned(sqlite, "wallets", wallet, user);
+    const w = record(sqlite, "wallets", wallet);
 
     if (id) {
-      owned(sqlite, "subscriptions", id, user);
+      record(sqlite, "subscriptions", id);
     }
 
     if (w.archived) {
@@ -100,41 +100,41 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
     if (id) {
       sqlite
         .prepare(
-          "UPDATE subscriptions SET name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=? AND user_id=?",
+          "UPDATE subscriptions SET name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?",
         )
-        .run(...values, id, user);
+        .run(...values, id);
     } else {
       sqlite
         .prepare(
-          "INSERT INTO subscriptions(name,amount,wallet_id,recurrence,next_due,status,id,user_id) VALUES (?,?,?,?,?,?,?,?)",
+          "INSERT INTO subscriptions(name,amount,wallet_id,recurrence,next_due,status,id) VALUES (?,?,?,?,?,?,?)",
         )
-        .run(...values, randomUUID(), user);
+        .run(...values, randomUUID());
     }
   } else if (intent === "goal") {
     if (id) {
-      owned(sqlite, "goals", id, user);
+      record(sqlite, "goals", id);
     }
 
     const values = [text(form, "name", 80), positive(text(form, "amount")), validDate(text(form, "target_date"))];
 
     if (id) {
       sqlite
-        .prepare("UPDATE goals SET name=?,amount=?,target_date=? WHERE id=? AND user_id=?")
-        .run(...values, id, user);
+        .prepare("UPDATE goals SET name=?,amount=?,target_date=? WHERE id=?")
+        .run(...values, id);
     } else {
       sqlite
-        .prepare("INSERT INTO goals(name,amount,target_date,id,user_id) VALUES (?,?,?,?,?)")
-        .run(...values, randomUUID(), user);
+        .prepare("INSERT INTO goals(name,amount,target_date,id) VALUES (?,?,?,?)")
+        .run(...values, randomUUID());
     }
   } else if (intent === "contribute") {
     const goal = text(form, "goal_id");
-    owned(sqlite, "goals", goal, user);
+    record(sqlite, "goals", goal);
     sqlite
-      .prepare("INSERT INTO contributions(id,user_id,goal_id,amount,date) VALUES (?,?,?,?,?)")
-      .run(randomUUID(), user, goal, positive(text(form, "amount")), validDate(text(form, "date")));
+      .prepare("INSERT INTO contributions(id,goal_id,amount,date) VALUES (?,?,?,?)")
+      .run(randomUUID(), goal, positive(text(form, "amount")), validDate(text(form, "date")));
   } else if (intent === "delete_contribution") {
-    owned(sqlite, "contributions", id, user);
-    sqlite.prepare("DELETE FROM contributions WHERE id=? AND user_id=?").run(id, user);
+    record(sqlite, "contributions", id);
+    sqlite.prepare("DELETE FROM contributions WHERE id=?").run(id);
   } else if (intent === "preview_import" || intent === "commit_import") {
     let csv = String(form.get("csv") || "");
     const file = form.get("file");
@@ -146,16 +146,16 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
 
     if (intent === "preview_import")
       return {
-        preview: previewImport(sqlite, user, csv),
+        preview: previewImport(sqlite, csv),
         csv,
         message: "Preview only. No transactions have been saved.",
       };
 
-    const result = commitImport(sqlite, user, csv, text(form, "policy"));
+    const result = commitImport(sqlite, csv, text(form, "policy"));
     return { message: `Imported ${result.imported} transactions; skipped ${result.skipped} duplicates.` };
   } else if (intent === "demo") {
     sqlite.transaction(() => {
-      if (sqlite.prepare("SELECT id FROM wallets WHERE user_id=? LIMIT 1").get(user))
+      if (sqlite.prepare("SELECT id FROM wallets LIMIT 1").get())
         throw new Error("Demo data is only available in an empty workspace.");
 
       const main = randomUUID(),
@@ -167,7 +167,7 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
         [savings, "Demo · Savings", 600000],
         [cash, "Demo · Wallet", 15000],
       ])
-        sqlite.prepare("INSERT INTO wallets(id,user_id,name,opening) VALUES (?,?,?,?)").run(id, user, name, opening);
+        sqlite.prepare("INSERT INTO wallets(id,name,opening) VALUES (?,?,?)").run(id, name, opening);
 
       const month = today().slice(0, 7);
       const rows = [
@@ -194,7 +194,7 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
           notes: "Fictional demo data — not real financial records.",
         }))
           f.set(key, String(value));
-        saveEntry(sqlite, user, f);
+        saveEntry(sqlite, f);
       }
 
       for (const [category, amount] of [
@@ -203,19 +203,19 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
         ["Transport", 15000],
         ["Shopping", 20000],
       ])
-        sqlite.prepare("INSERT INTO budgets VALUES (?,?,?,?,?)").run(randomUUID(), user, month, category, amount);
+        sqlite.prepare("INSERT INTO budgets VALUES (?,?,?,?)").run(randomUUID(), month, category, amount);
       sqlite
-        .prepare("INSERT INTO subscriptions VALUES (?,?,?,?,?,?,?,?)")
-        .run(randomUUID(), user, "Demo · Music", 1098, main, "monthly", `${month}-28`, "active");
+        .prepare("INSERT INTO subscriptions VALUES (?,?,?,?,?,?,?)")
+        .run(randomUUID(), "Demo · Music", 1098, main, "monthly", `${month}-28`, "active");
 
       const goal = randomUUID();
 
       sqlite
-        .prepare("INSERT INTO goals VALUES (?,?,?,?,?)")
-        .run(goal, user, "Demo · A little adventure", 300000, `${Number(month.slice(0, 4)) + 1}-06-01`);
+        .prepare("INSERT INTO goals VALUES (?,?,?,?)")
+        .run(goal, "Demo · A little adventure", 300000, `${Number(month.slice(0, 4)) + 1}-06-01`);
       sqlite
-        .prepare("INSERT INTO contributions VALUES (?,?,?,?,?)")
-        .run(randomUUID(), user, goal, 60000, `${month}-16`);
+        .prepare("INSERT INTO contributions VALUES (?,?,?,?)")
+        .run(randomUUID(), goal, 60000, `${month}-16`);
     })();
     return { message: "Fictional demo data added. All demo accounts and descriptions are labelled." };
   } else throw new Error("Unknown action.");

@@ -12,7 +12,7 @@ export type ImportRow = {
   value?: ReturnType<typeof parseEntry>;
 };
 
-export function previewImport(database: Database.Database, user: string, csv: string): ImportRow[] {
+export function previewImport(database: Database.Database, csv: string): ImportRow[] {
   if (Buffer.byteLength(csv) > 1024 * 1024) throw new Error("CSV must be at most 1 MB.");
   const rows = parse(csv, { columns: true, bom: true, skip_empty_lines: true, max_record_size: 10000 }) as Record<
     string,
@@ -20,13 +20,13 @@ export function previewImport(database: Database.Database, user: string, csv: st
   >[];
   if (!rows.length || rows.length > 1000) throw new Error("Import between 1 and 1,000 rows at a time.");
   if (!csvHeaders.every((header) => header in rows[0])) throw new Error(`Required headers: ${csvHeaders.join(",")}`);
-  const wallets = database.prepare("SELECT id,name FROM wallets WHERE user_id=?").all(user) as {
+  const wallets = database.prepare("SELECT id,name FROM wallets").all() as {
     id: string;
     name: string;
   }[];
   const seen = new Set<string>();
   // Compare normalized content against all existing entries, including manually created records.
-  for (const entry of database.prepare("SELECT * FROM entries WHERE user_id=?").all(user) as any[])
+  for (const entry of database.prepare("SELECT * FROM entries").all() as any[])
     seen.add(fingerprint({ ...entry, walletId: entry.wallet_id, destinationId: entry.destination_id }));
   return rows.map((row, index) => {
     try {
@@ -40,7 +40,7 @@ export function previewImport(database: Database.Database, user: string, csv: st
         if (destination.length !== 1) throw new Error("Destination must match exactly one account.");
         form.set("destination_id", destination[0].id);
       }
-      const value = parseEntry(database, user, form),
+      const value = parseEntry(database, form),
         hash = fingerprint(value),
         duplicate = seen.has(hash);
       seen.add(hash);
@@ -56,11 +56,11 @@ export function previewImport(database: Database.Database, user: string, csv: st
   });
 }
 
-export function commitImport(database: Database.Database, user: string, csv: string, policy: string) {
+export function commitImport(database: Database.Database, csv: string, policy: string) {
   if (!["skip", "reject"].includes(policy)) throw new Error("Choose a duplicate policy.");
   return database
     .transaction(() => {
-      const rows = previewImport(database, user, csv);
+      const rows = previewImport(database, csv);
       if (rows.some((row) => row.error)) throw new Error("Fix all invalid rows before importing.");
       if (policy === "reject" && rows.some((row) => row.duplicate))
         throw new Error("Duplicates found. Choose skip duplicates or edit the CSV.");
@@ -80,7 +80,7 @@ export function commitImport(database: Database.Database, user: string, csv: str
           notes: value.notes,
         }))
           form.set(key, v);
-        saveEntry(database, user, form);
+        saveEntry(database, form);
         count++;
       }
       return { imported: count, skipped: rows.length - count };

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "migrate": "node --experimental-strip-types --env-file-if-exists=.env scripts/migrate.ts",
     "build": "react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",

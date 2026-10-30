@@ -1,6 +1,8 @@
 # Welcome to React Router!
 
-This tracker opens directly into a single workspace without sign-in. Existing owner records are reused automatically; a workspace is created on first use for a new database. Authentication secrets and owner passwords are no longer required. Anyone who can reach the server can view and edit the workspace, including exports and receipts.
+This tracker opens directly into a single workspace without sign-in or user accounts. Financial records belong to the workspace. Anyone who can reach the server can view and edit the workspace, including exports and receipts.
+
+Run `npm run migrate` before starting the app on a new or existing database. The shared-workspace migration preserves financial records and removes the old authentication tables and user ID columns. Budgets with the same month and category are combined by adding their amounts.
 
 A modern, production-ready template for building full-stack React applications using React Router.
 

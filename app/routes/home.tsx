@@ -27,7 +27,7 @@ import {
   Target,
 } from "lucide-react";
 import type { Route } from "./+types/home";
-import { getWorkspace, sameOrigin } from "../lib/workspace.server";
+import { sameOrigin } from "../lib/workspace.server";
 import { dashboard } from "../lib/dashboard.server";
 import { mutate } from "../lib/actions.server";
 import { boundedForm } from "../lib/receipts.server";
@@ -39,16 +39,14 @@ import { Button } from "../components/ui/button";
 import type { Entry } from "../lib/ledger.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const user = getWorkspace();
-  return { ...dashboard(user.id, new URL(request.url)), user: { name: user.name, email: user.email } };
+  return dashboard(new URL(request.url));
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const user = getWorkspace();
   sameOrigin(request);
   try {
     const form = await boundedForm(request);
-    return await mutate(user.id, form);
+    return await mutate(form);
   } catch (error) {
     if (error instanceof Response) throw error;
     return {
@@ -126,7 +124,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           <X />
         </button>
         <div className="workspace">
-          <span className="avatar">{d.user.name.slice(0, 1).toUpperCase()}</span>
+          <span className="avatar">F</span>
           <div>
             <strong>Personal workspace</strong>
             <small>Make room for what matters</small>
@@ -180,7 +178,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           <span className="topbar-private">
             <span className="status-dot" /> Personal workspace
           </span>
-          <span className="profile">{d.user.name.slice(0, 1).toUpperCase()}</span>
+          <span className="profile">F</span>
         </header>
         <main className="content">
           <div className="page-heading">

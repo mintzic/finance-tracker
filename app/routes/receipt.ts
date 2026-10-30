@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Route } from './+types/receipt';
-import { requireUser } from '../lib/auth.server';
+import { getWorkspace } from '../lib/workspace.server';
 import { sqlite } from '../db/connection.server';
 import { receiptDirectory } from '../lib/receipts.server';
 export async function loader({request,params}:Route.LoaderArgs) {
-  const user=await requireUser(request);
+  const user=getWorkspace();
   if(!/^[a-f0-9-]{36}$/.test(params.id)) throw new Response('Not found',{status:404});
   const receipt=sqlite.prepare('SELECT * FROM receipts WHERE id=? AND user_id=?').get(params.id,user.id) as {filename:string;mime:string}|undefined;
   if(!receipt) throw new Response('Not found',{status:404});

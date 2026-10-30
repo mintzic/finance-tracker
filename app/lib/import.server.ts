@@ -55,6 +55,7 @@ export function previewImport(database: Database.Database, user: string, csv: st
     }
   });
 }
+
 export function commitImport(database: Database.Database, user: string, csv: string, policy: string) {
   if (!["skip", "reject"].includes(policy)) throw new Error("Choose a duplicate policy.");
   return database
@@ -86,6 +87,7 @@ export function commitImport(database: Database.Database, user: string, csv: str
     })
     .immediate();
 }
+
 export function csvCell(value: unknown) {
   let text = String(value ?? "");
   // Protect spreadsheet users from formula injection.

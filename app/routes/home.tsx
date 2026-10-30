@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, useNavigation, useSearchParams } from "react-router";
 import {
   Wallet,
   LayoutDashboard,
@@ -14,7 +14,6 @@ import {
   ChevronLeft,
   Plus,
   X,
-  LogOut,
   Upload,
   Download,
   Search,
@@ -28,7 +27,7 @@ import {
   Target,
 } from "lucide-react";
 import type { Route } from "./+types/home";
-import { requireUser, getAuth, sameOrigin } from "../lib/auth.server";
+import { getWorkspace, sameOrigin } from "../lib/workspace.server";
 import { dashboard } from "../lib/dashboard.server";
 import { mutate } from "../lib/actions.server";
 import { boundedForm } from "../lib/receipts.server";
@@ -38,21 +37,17 @@ import { TransactionTable } from "../components/transaction-table";
 import { SpendingChart, TrendChart } from "../components/charts";
 import { Button } from "../components/ui/button";
 import type { Entry } from "../lib/ledger.server";
+
 export async function loader({ request }: Route.LoaderArgs) {
-  const user = await requireUser(request);
+  const user = getWorkspace();
   return { ...dashboard(user.id, new URL(request.url)), user: { name: user.name, email: user.email } };
 }
+
 export async function action({ request }: Route.ActionArgs) {
-  const user = await requireUser(request);
+  const user = getWorkspace();
   sameOrigin(request);
   try {
     const form = await boundedForm(request);
-    if (form.get("intent") === "logout") {
-      const response = await getAuth().api.signOut({ headers: request.headers, asResponse: true });
-      const headers = new Headers();
-      for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
-      return redirect("/login", { headers });
-    }
     return await mutate(user.id, form);
   } catch (error) {
     if (error instanceof Response) throw error;
@@ -64,12 +59,14 @@ export async function action({ request }: Route.ActionArgs) {
     };
   }
 }
+
 export function meta() {
   return [
     { title: "Folio — Personal finance" },
     { name: "description", content: "A private space for a clearer financial life." },
   ];
 }
+
 export function headers() {
   return {
     "Cache-Control": "private, no-store",
@@ -77,6 +74,7 @@ export function headers() {
     "Referrer-Policy": "same-origin",
   };
 }
+
 const navigation = [
   ["dashboard", "Overview", LayoutDashboard],
   ["accounts", "Accounts", Wallet],
@@ -89,18 +87,22 @@ const navigation = [
   ["reports", "Reports", ChartNoAxesCombined],
 ] as const;
 type Modal = { type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute"; value?: any };
+
 export default function Home({ loaderData: d, actionData }: Route.ComponentProps) {
   const [params] = useSearchParams();
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
   const pending = useNavigation().state !== "idle";
+
   useEffect(() => {
     if (actionData && "message" in actionData && !("preview" in actionData)) setModal(null);
   }, [actionData]);
+
   const href = (view: string, extra: Record<string, string> = {}) => {
     const p = new URLSearchParams({ view, month: d.month, ...extra });
     return "/?" + p;
   };
+
   const edit = (entry: Entry) => setModal({ type: "entry", value: entry });
   const total = d.wallets.reduce((sum, w) => sum + w.balance, 0);
   const monthName = new Date(d.month + "-01T12:00:00").toLocaleDateString("en-SG", { month: "long", year: "numeric" });
@@ -110,6 +112,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
     p.set("page", String(page));
     return "/?" + p;
   };
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobile ? "mobile-open" : ""}`}>
@@ -158,16 +161,9 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             <Upload size={16} />
             Import & export
           </Link>
-          <Form method="post">
-            <input type="hidden" name="intent" value="logout" />
-            <button className="utility-link" disabled={pending}>
-              <LogOut size={16} />
-              Sign out
-            </button>
-          </Form>
           <div className="sidebar-footer">
             <span className="status-dot" />
-            Private workspace<span>SGD</span>
+            Local workspace<span>SGD</span>
           </div>
         </div>
       </aside>
@@ -182,7 +178,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             <strong>{title}</strong>
           </div>
           <span className="topbar-private">
-            <span className="status-dot" /> All yours. Always private.
+            <span className="status-dot" /> Personal workspace
           </span>
           <span className="profile">{d.user.name.slice(0, 1).toUpperCase()}</span>
         </header>

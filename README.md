@@ -1,5 +1,7 @@
 # Welcome to React Router!
 
+This tracker opens directly into a single workspace without sign-in. Existing owner records are reused automatically; a workspace is created on first use for a new database. Authentication secrets and owner passwords are no longer required. Anyone who can reach the server can view and edit the workspace, including exports and receipts.
+
 A modern, production-ready template for building full-stack React applications using React Router.
 
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)

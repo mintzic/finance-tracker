@@ -74,9 +74,13 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
     const wallet = text(form, "wallet_id");
     const w = owned(sqlite, "wallets", wallet, user);
 
-    if (id) owned(sqlite, "subscriptions", id, user);
+    if (id) {
+      owned(sqlite, "subscriptions", id, user);
+    }
 
-    if (w.archived) throw new Error("Choose an active account.");
+    if (w.archived) {
+      throw new Error("Choose an active account.");
+    }
 
     const recurrence = text(form, "recurrence"),
       status = text(form, "status");
@@ -93,31 +97,35 @@ export async function mutate(user: string, form: FormData): Promise<ActionResult
       status,
     ];
 
-    if (id)
+    if (id) {
       sqlite
         .prepare(
           "UPDATE subscriptions SET name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=? AND user_id=?",
         )
         .run(...values, id, user);
-    else
+    } else {
       sqlite
         .prepare(
           "INSERT INTO subscriptions(name,amount,wallet_id,recurrence,next_due,status,id,user_id) VALUES (?,?,?,?,?,?,?,?)",
         )
         .run(...values, randomUUID(), user);
+    }
   } else if (intent === "goal") {
-    if (id) owned(sqlite, "goals", id, user);
+    if (id) {
+      owned(sqlite, "goals", id, user);
+    }
 
     const values = [text(form, "name", 80), positive(text(form, "amount")), validDate(text(form, "target_date"))];
 
-    if (id)
+    if (id) {
       sqlite
         .prepare("UPDATE goals SET name=?,amount=?,target_date=? WHERE id=? AND user_id=?")
         .run(...values, id, user);
-    else
+    } else {
       sqlite
         .prepare("INSERT INTO goals(name,amount,target_date,id,user_id) VALUES (?,?,?,?,?)")
         .run(...values, randomUUID(), user);
+    }
   } else if (intent === "contribute") {
     const goal = text(form, "goal_id");
     owned(sqlite, "goals", goal, user);

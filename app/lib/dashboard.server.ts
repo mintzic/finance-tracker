@@ -98,6 +98,7 @@ export function dashboard(user: string, url: URL) {
   const edit = editId
     ? (sqlite.prepare("SELECT * FROM entries WHERE id=? AND user_id=?").get(editId, user) as Entry | undefined)
     : undefined;
+
   return {
     month,
     section,

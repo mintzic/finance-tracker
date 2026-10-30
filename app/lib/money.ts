@@ -7,12 +7,15 @@ export function minor(value: string): number {
   if (!Number.isSafeInteger(result) || result > 999999999999) throw new Error("Amount is too large.");
   return negative ? -result : result;
 }
+
 export const money = (value: number) => {
   if (!Number.isSafeInteger(value)) throw new Error("Balance exceeds the supported integer range.");
   return new Intl.NumberFormat("en-SG", { style: "currency", currency: "SGD" }).format(value / 100);
 };
+
 export const decimal = (value: number) =>
   `${value < 0 ? "-" : ""}${Math.floor(Math.abs(value) / 100)}.${String(Math.abs(value) % 100).padStart(2, "0")}`;
+
 export function today() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Singapore",
@@ -21,6 +24,7 @@ export function today() {
     day: "2-digit",
   }).format(new Date());
 }
+
 export function validDate(value: string) {
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
@@ -31,6 +35,7 @@ export function validDate(value: string) {
     throw new Error("Enter a valid date.");
   return value;
 }
+
 export function monthRange(month: string) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month < "1900-01" || month > "9998-12")
     throw new Error("Invalid month.");

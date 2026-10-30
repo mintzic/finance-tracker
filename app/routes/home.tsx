@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Form, Link, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, useFetcher, useNavigation, useSearchParams } from "react-router";
 import {
   Wallet,
   LayoutDashboard,
@@ -31,11 +31,12 @@ import { sameOrigin } from "../lib/workspace.server";
 import { dashboard } from "../lib/dashboard.server";
 import { mutate } from "../lib/actions.server";
 import { boundedForm } from "../lib/receipts.server";
-import { expenseCategories, incomeCategories } from "../lib/categories";
+
 import { decimal, money, today } from "../lib/money";
 import { TransactionTable } from "../components/transaction-table";
 import { SpendingChart, TrendChart } from "../components/charts";
 import { Button } from "../components/ui/button";
+import { WorkspaceCover } from "../components/workspace-cover";
 import type { Entry } from "../lib/ledger.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -84,9 +85,11 @@ const navigation = [
   ["goals", "Savings goals", Flag],
   ["reports", "Reports", ChartNoAxesCombined],
 ] as const;
-type Modal = { type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute"; value?: any };
+type Modal = { type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories"; value?: any };
 
 export default function Home({ loaderData: d, actionData }: Route.ComponentProps) {
+  const expenseCategories = d.categories.filter(c => c.kind === "expense").map(c => c.name);
+  const incomeCategories = d.categories.filter(c => c.kind === "income").map(c => c.name);
   const [params] = useSearchParams();
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
@@ -144,6 +147,16 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               {d.section === key && <span className="active-dot" />}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setMobile(false);
+              setModal({ type: "categories" });
+            }}
+          >
+            <SlidersHorizontal size={17} />
+            Categories
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
@@ -180,6 +193,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </span>
           <span className="profile">F</span>
         </header>
+        <WorkspaceCover cover={d.cover} />
         <main className="content">
           <div className="page-heading">
             <div>
@@ -549,7 +563,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under Home &amp; bills in their selected account
+                Active subscriptions automatically record expenses under {d.categories.find(c => c.id === "expense-4")?.name || "Other"} in their selected account
                 when you open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account
                 subscriptions are skipped.
               </p>
@@ -814,7 +828,8 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </footer>
         </main>
       </div>
-      {modal && (
+      {modal?.type === "categories" && <CategoryManager data={d} close={() => setModal(null)} edit={(value) => setModal({type: "category", value})} create={() => setModal({type: "category"})} pending={pending} error={actionData?.error} />}
+      {modal && modal.type !== "categories" && (
         <Editor
           modal={modal}
           data={d}
@@ -900,6 +915,8 @@ function Editor({
   pending: boolean;
   error?: string;
 }) {
+  const expenseCategories = d.categories.filter(c => c.kind === "expense").map(c => c.name);
+  const incomeCategories = d.categories.filter(c => c.kind === "income").map(c => c.name);
   const dialog = useRef<HTMLDialogElement>(null);
   const v = modal.value || {};
   const [kind, setKind] = useState(
@@ -915,6 +932,8 @@ function Editor({
     subscription: v.id ? "Edit subscription" : "A new subscription",
     goal: v.id ? "Edit savings goal" : "Something to save for",
     contribute: "A little closer to your goal",
+    categories: "Categories",
+    category: v.id ? "Edit category" : "New category",
   };
   const field = (label: string, name: string, type = "text", value: any = "", required = true) => (
     <label>
@@ -971,6 +990,11 @@ function Editor({
         <Form method="post" encType="multipart/form-data" className="form-stack">
           <input type="hidden" name="intent" value={modal.type === "contribute" ? "contribute" : modal.type} />
           {v.id && modal.type !== "contribute" && <input type="hidden" name="id" value={v.id} />}
+          {modal.type === "category" && <>
+            {field("Category name", "name", "text", v.name)}
+            <label>Type<select name="kind" defaultValue={v.kind || "expense"} disabled={!!v.id}><option value="expense">Expense</option><option value="income">Income</option></select></label>
+            <p className="small muted">Renaming updates existing transactions and budgets.</p>
+          </>}
           {modal.type === "entry" && (
             <>
               <label>
@@ -1130,4 +1154,38 @@ function Editor({
       </div>
     </dialog>
   );
+}
+
+function CategoryManager({ data, close, edit, create, pending }: {
+  data: Route.ComponentProps["loaderData"]; close: () => void;
+  edit: (value: {id:string;name:string;kind:string}) => void; create: () => void;
+  pending: boolean; error?: string;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const fetcher = useFetcher<typeof action>();
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  return <dialog ref={dialog} className="editor" aria-label="Manage categories" onCancel={close} onClick={e => { if(e.target === dialog.current) close(); }}>
+    <div className="editor-inner">
+      <div className="panel-heading"><h2>Categories</h2><button className="icon-button" onClick={close} aria-label="Close categories"><X size={19}/></button></div>
+      <p className="small muted">Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the fallback and cannot be changed.</p>
+      <div className="category-list">
+        {(["expense", "income"] as const).map(kind => <section key={kind}>
+          <h2>{kind === "expense" ? "Expenses" : "Income"}</h2>
+          {data.categories.filter(c => c.kind === kind).map(c => <div className="category-row" key={c.id}>
+            <span>{c.name}</span>
+            {c.name !== "Other" && <div className="category-actions">
+              <button className="text-button" disabled={pending || fetcher.state !== "idle"} onClick={() => edit(c)}>Edit</button>
+              <fetcher.Form method="post" onSubmit={e => { if(!confirm('Delete "' + c.name + '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.')) e.preventDefault(); }}>
+                <input type="hidden" name="intent" value="delete_category"/><input type="hidden" name="id" value={c.id}/>
+                <button className="text-button negative" disabled={fetcher.state !== "idle"}>Delete</button>
+              </fetcher.Form>
+            </div>}
+          </div>)}
+        </section>)}
+      </div>
+      {fetcher.data?.error && <p className="error" role="alert">{fetcher.data.error}</p>}
+      {fetcher.data?.message && <p className="small" role="status">{fetcher.data.message}</p>}
+      <div className="editor-actions"><button className="secondary" onClick={close}>Done</button><button className="primary" onClick={create} disabled={fetcher.state !== "idle"}><Plus size={14}/>New category</button></div>
+    </div>
+  </dialog>;
 }

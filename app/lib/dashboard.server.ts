@@ -4,6 +4,9 @@ import { balances, type Entry } from "./ledger.server";
 import { monthRange, today } from "./money";
 import { deductSubscriptions } from "./subscriptions.server";
 
+import { listCategories } from "./categories.server";
+import { getCover } from "./cover.server";
+
 export function dashboard(url: URL) {
   deductSubscriptions(sqlite);
   const month = url.searchParams.get("month") || today().slice(0, 7);
@@ -103,6 +106,8 @@ export function dashboard(url: URL) {
   return {
     month,
     section,
+    categories: listCategories(sqlite),
+    cover: getCover(sqlite) || null,
     sum,
     spending,
     budgets,

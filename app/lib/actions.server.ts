@@ -1,15 +1,27 @@
 import { randomUUID } from "node:crypto";
 import { sqlite } from "../db/connection.server";
-import { record, positive, text, saveEntry, expenseCategories } from "./ledger.server";
+import { record, positive, text, saveEntry } from "./ledger.server";
 import { minor, monthRange, validDate, today } from "./money";
 import { commitImport, previewImport, type ImportRow } from "./import.server";
 import { stageReceipt, receiptFor, removeReceiptFile } from "./receipts.server";
+
+import { categoryNames, saveCategory } from "./categories.server";
+import { updateCover } from "./cover.server";
 
 export type ActionResult = { error?: string; message?: string; preview?: ImportRow[]; csv?: string };
 
 export async function mutate(form: FormData): Promise<ActionResult> {
   const intent = text(form, "intent");
   const id = String(form.get("id") || "");
+  if (["upload_cover", "remove_cover", "position_cover"].includes(intent)) {
+    await updateCover(sqlite, form);
+    return { message: "Cover updated." };
+  }
+
+  if (intent === "category" || intent === "delete_category") {
+    saveCategory(sqlite, form, intent === "delete_category");
+    return { message: intent === "category" ? "Category saved." : "Category deleted. Records moved to Other." };
+  }
 
   if (intent === "entry") {
     const receipt = await stageReceipt(form.get("receipt"));
@@ -62,7 +74,7 @@ export async function mutate(form: FormData): Promise<ActionResult> {
     const month = text(form, "month");
     monthRange(month);
     const category = text(form, "category");
-    if (!expenseCategories.includes(category)) throw new Error("Choose an expense category.");
+    if (!categoryNames(sqlite, "expense").includes(category)) throw new Error("Choose an expense category.");
     sqlite
       .prepare(
         "INSERT INTO budgets(id,month,category,amount) VALUES (?,?,?,?) ON CONFLICT(month,category) DO UPDATE SET amount=excluded.amount",

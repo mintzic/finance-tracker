@@ -48,7 +48,7 @@ export function deductSubscriptions(database: Database.Database, through = today
         if (!charged) {
           const entry = randomUUID();
           database.prepare(`INSERT INTO entries(id,kind,date,description,amount,wallet_id,category,notes)
-            VALUES (?,'expense',?,?,?,?,'Home & bills',?)`)
+            VALUES (?,'expense',?,?,?,?,COALESCE((SELECT name FROM categories WHERE id='expense-4'),'Other'),?)`)
             .run(entry, date, subscription.name, subscription.amount, subscription.wallet_id,
               `Automatic subscription payment (${subscription.recurrence}).`);
           database.prepare("INSERT INTO subscription_charges(subscription_id,due_date,entry_id) VALUES (?,?,?)")

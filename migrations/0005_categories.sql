@@ -1,0 +1,17 @@
+CREATE TABLE categories (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('income','expense')), name TEXT NOT NULL COLLATE NOCASE CHECK(length(trim(name)) BETWEEN 1 AND 80), UNIQUE(kind,name));
+INSERT INTO categories VALUES ('expense-0','expense','Food & dining');
+INSERT INTO categories VALUES ('expense-1','expense','Groceries');
+INSERT INTO categories VALUES ('expense-2','expense','Transport');
+INSERT INTO categories VALUES ('expense-3','expense','Shopping');
+INSERT INTO categories VALUES ('expense-4','expense','Home & bills');
+INSERT INTO categories VALUES ('expense-5','expense','Health');
+INSERT INTO categories VALUES ('expense-6','expense','Entertainment');
+INSERT INTO categories VALUES ('expense-7','expense','Travel');
+INSERT INTO categories VALUES ('expense-8','expense','Other');
+INSERT INTO categories VALUES ('income-0','income','Salary');
+INSERT INTO categories VALUES ('income-1','income','Freelance');
+INSERT INTO categories VALUES ('income-2','income','Interest');
+INSERT INTO categories VALUES ('income-3','income','Gifts');
+INSERT INTO categories VALUES ('income-4','income','Other');
+INSERT OR IGNORE INTO categories SELECT 'legacy-' || kind || '-' || category,kind,category FROM entries WHERE kind IN ('income','expense');
+INSERT OR IGNORE INTO categories SELECT 'legacy-budget-' || category,'expense',category FROM budgets;

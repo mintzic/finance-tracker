@@ -4,8 +4,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { entries } from "../db/schema";
 import { balancesSQL } from "../db/queries";
 import { minor, validDate } from "./money";
-export { expenseCategories, incomeCategories } from "./categories";
-import { expenseCategories, incomeCategories } from "./categories";
+import { categoryNames } from "./categories.server";
 
 export type Entry = {
   id: string;
@@ -81,7 +80,7 @@ export function parseEntry(database: Database.Database, form: FormData) {
 
   const category = kind === "transfer" ? "Transfer" : text(form, "category", 80);
 
-  if (kind !== "transfer" && !(kind === "income" ? incomeCategories : expenseCategories).includes(category)) {
+  if (kind !== "transfer" && !categoryNames(database, kind).includes(category)) {
     throw new Error("Choose a valid category.");
   }
   const notes = String(form.get("notes") || "").trim();

@@ -6,6 +6,7 @@ import { saveEntry, balances } from '../app/lib/ledger.server';
 import { previewImport, commitImport, csvCell } from '../app/lib/import.server';
 function setup() {
   const db=new Database(':memory:');db.pragma('foreign_keys=ON');db.exec(readFileSync('migrations/0001_initial.sql','utf8'));db.exec(readFileSync('migrations/0002_login_attempts.sql','utf8'));db.exec(readFileSync('migrations/0003_shared_workspace.sql','utf8'));
+  db.exec(readFileSync('migrations/0005_categories.sql','utf8'));
   db.prepare('INSERT INTO wallets(id,name,opening) VALUES (?,?,?)').run('a','Everyday',10000);
   db.prepare('INSERT INTO wallets(id,name,opening) VALUES (?,?,?)').run('b','Savings',20000);
   return db;

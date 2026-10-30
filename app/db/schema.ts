@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const wallets = sqliteTable("wallets", {
   id: text("id").primaryKey(),
@@ -35,6 +35,7 @@ export const subscriptions = sqliteTable("subscriptions", {
   walletId: text("wallet_id").notNull(),
   recurrence: text("recurrence").notNull(),
   nextDue: text("next_due").notNull(),
+  billingAnchor: text("billing_anchor"),
   status: text("status").notNull(),
 });
 
@@ -44,6 +45,12 @@ export const goals = sqliteTable("goals", {
   amount: integer("amount").notNull(),
   targetDate: text("target_date").notNull(),
 });
+
+export const subscriptionCharges = sqliteTable("subscription_charges", {
+  subscriptionId: text("subscription_id").notNull().references(() => subscriptions.id, { onDelete: "cascade" }),
+  dueDate: text("due_date").notNull(),
+  entryId: text("entry_id").references(() => entries.id, { onDelete: "set null" }),
+}, table => [primaryKey({ columns: [table.subscriptionId, table.dueDate] })]);
 
 export const contributions = sqliteTable("contributions", {
   id: text("id").primaryKey(),

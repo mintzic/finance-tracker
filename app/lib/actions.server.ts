@@ -100,9 +100,9 @@ export async function mutate(form: FormData): Promise<ActionResult> {
     if (id) {
       sqlite
         .prepare(
-          "UPDATE subscriptions SET name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?",
+          "UPDATE subscriptions SET billing_anchor=CASE WHEN next_due<>? OR recurrence<>? THEN ? ELSE billing_anchor END,name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?",
         )
-        .run(...values, id);
+        .run(values[4], values[3], values[4], ...values, id);
     } else {
       sqlite
         .prepare(
@@ -205,7 +205,7 @@ export async function mutate(form: FormData): Promise<ActionResult> {
       ])
         sqlite.prepare("INSERT INTO budgets VALUES (?,?,?,?)").run(randomUUID(), month, category, amount);
       sqlite
-        .prepare("INSERT INTO subscriptions VALUES (?,?,?,?,?,?,?)")
+        .prepare("INSERT INTO subscriptions(id,name,amount,wallet_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?)")
         .run(randomUUID(), "Demo · Music", 1098, main, "monthly", `${month}-28`, "active");
 
       const goal = randomUUID();

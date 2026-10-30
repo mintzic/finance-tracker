@@ -21,7 +21,7 @@ for(const name of readdirSync('migrations').filter(n=>n.endsWith('.sql')).sort()
     }
     db.transaction(()=>{
       db.exec(sql);
-      if(db.pragma('foreign_key_check').length) throw new Error(`Foreign key check failed: ${name}`);
+      if((db.pragma('foreign_key_check') as unknown[]).length) throw new Error(`Foreign key check failed: ${name}`);
       db.prepare('INSERT INTO _migrations VALUES (?,?)').run(name,checksum);
     })();
   }

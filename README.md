@@ -4,6 +4,8 @@ This tracker opens directly into a single workspace without sign-in or user acco
 
 Run `npm run migrate` before starting the app on a new or existing database. The shared-workspace migration preserves financial records and removes the old authentication tables and user ID columns. Budgets with the same month and category are combined by adding their amounts.
 
+Active subscriptions automatically record expenses in their selected account under Home & bills when the tracker opens or transactions are exported. All due dates through today (Asia/Singapore) are processed, including missed dates; each billing date is recorded once. Next due advances automatically. Paused, cancelled, and archived-account subscriptions are skipped. Resuming catches up missed dates unless Next due is moved forward. Monthly and yearly billing preserve the original day, clamping to the last day of shorter months. This updates the tracker ledger; it does not initiate bank payments. Processing runs on access, so overdue charges appear the next time the tracker is opened.
+
 A modern, production-ready template for building full-stack React applications using React Router.
 
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)

@@ -2,8 +2,10 @@ import { sqlite } from "../db/connection.server";
 import { monthlySummarySQL } from "../db/queries";
 import { balances, type Entry } from "./ledger.server";
 import { monthRange, today } from "./money";
+import { deductSubscriptions } from "./subscriptions.server";
 
 export function dashboard(url: URL) {
+  deductSubscriptions(sqlite);
   const month = url.searchParams.get("month") || today().slice(0, 7);
   const { start, end } = monthRange(month);
   const section = url.searchParams.get("view") || "dashboard";

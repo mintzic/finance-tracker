@@ -549,8 +549,9 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Reminders only. Subscriptions never post transactions automatically. Next due dates are maintained
-                manually.
+                Active subscriptions automatically record expenses under Home &amp; bills in their selected account
+                when you open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account
+                subscriptions are skipped.
               </p>
               <div className="three-grid">
                 {d.subscriptions.map((s) => (
@@ -1078,7 +1079,9 @@ function Editor({
                   <option value="cancelled">Cancelled</option>
                 </select>
               </label>
-              <p className="small muted">This is a reminder. No transactions are posted automatically.</p>
+              <p className="small muted">Active subscriptions deduct from the selected account on each due date.
+                Past due dates create catch-up expenses when saved. Resuming a paused subscription also catches up
+                missed dates; change Next due first to skip them.</p>
             </>
           )}
           {modal.type === "goal" && (

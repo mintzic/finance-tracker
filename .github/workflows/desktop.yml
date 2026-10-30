@@ -2,7 +2,7 @@ name: Desktop builds
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    tags: ["v*"]
 permissions:
   contents: read
 jobs:
@@ -22,7 +22,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run desktop:build
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - run: npm run desktop:test
       - name: Smoke test packaged macOS app
         if: runner.os == 'macOS'

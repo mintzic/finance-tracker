@@ -85,11 +85,14 @@ const navigation = [
   ["goals", "Savings goals", Flag],
   ["reports", "Reports", ChartNoAxesCombined],
 ] as const;
-type Modal = { type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories"; value?: any };
+type Modal = {
+  type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories";
+  value?: any;
+};
 
 export default function Home({ loaderData: d, actionData }: Route.ComponentProps) {
-  const expenseCategories = d.categories.filter(c => c.kind === "expense").map(c => c.name);
-  const incomeCategories = d.categories.filter(c => c.kind === "income").map(c => c.name);
+  const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
+  const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
   const [params] = useSearchParams();
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
@@ -126,14 +129,6 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
         <button className="mobile-close icon-button" onClick={() => setMobile(false)} aria-label="Close navigation">
           <X />
         </button>
-        <div className="workspace">
-          <span className="avatar">F</span>
-          <div>
-            <strong>Personal workspace</strong>
-            <small>Make room for what matters</small>
-          </div>
-        </div>
-        <p className="nav-label">WORKSPACE</p>
         <nav>
           {navigation.map(([key, label, Icon]) => (
             <Link
@@ -159,15 +154,6 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <Sparkles size={17} />
-            <p>
-              Small steps.
-              <br />
-              <strong>Steady progress.</strong>
-            </p>
-            <span>Your future self will thank you.</span>
-          </div>
           <Link to={href("import")} className="utility-link">
             <Upload size={16} />
             Import & export
@@ -188,10 +174,6 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             <ChevronRight size={13} />
             <strong>{title}</strong>
           </div>
-          <span className="topbar-private">
-            <span className="status-dot" /> Personal workspace
-          </span>
-          <span className="profile">F</span>
         </header>
         <WorkspaceCover cover={d.cover} />
         <main className="content">
@@ -563,8 +545,9 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under {d.categories.find(c => c.id === "expense-4")?.name || "Other"} in their selected account
-                when you open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account
+                Active subscriptions automatically record expenses under{" "}
+                {d.categories.find((c) => c.id === "expense-4")?.name || "Other"} in their selected account when you
+                open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account
                 subscriptions are skipped.
               </p>
               <div className="three-grid">
@@ -828,7 +811,16 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </footer>
         </main>
       </div>
-      {modal?.type === "categories" && <CategoryManager data={d} close={() => setModal(null)} edit={(value) => setModal({type: "category", value})} create={() => setModal({type: "category"})} pending={pending} error={actionData?.error} />}
+      {modal?.type === "categories" && (
+        <CategoryManager
+          data={d}
+          close={() => setModal(null)}
+          edit={(value) => setModal({ type: "category", value })}
+          create={() => setModal({ type: "category" })}
+          pending={pending}
+          error={actionData?.error}
+        />
+      )}
       {modal && modal.type !== "categories" && (
         <Editor
           modal={modal}
@@ -915,8 +907,8 @@ function Editor({
   pending: boolean;
   error?: string;
 }) {
-  const expenseCategories = d.categories.filter(c => c.kind === "expense").map(c => c.name);
-  const incomeCategories = d.categories.filter(c => c.kind === "income").map(c => c.name);
+  const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
+  const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
   const dialog = useRef<HTMLDialogElement>(null);
   const v = modal.value || {};
   const [kind, setKind] = useState(
@@ -990,11 +982,19 @@ function Editor({
         <Form method="post" encType="multipart/form-data" className="form-stack">
           <input type="hidden" name="intent" value={modal.type === "contribute" ? "contribute" : modal.type} />
           {v.id && modal.type !== "contribute" && <input type="hidden" name="id" value={v.id} />}
-          {modal.type === "category" && <>
-            {field("Category name", "name", "text", v.name)}
-            <label>Type<select name="kind" defaultValue={v.kind || "expense"} disabled={!!v.id}><option value="expense">Expense</option><option value="income">Income</option></select></label>
-            <p className="small muted">Renaming updates existing transactions and budgets.</p>
-          </>}
+          {modal.type === "category" && (
+            <>
+              {field("Category name", "name", "text", v.name)}
+              <label>
+                Type
+                <select name="kind" defaultValue={v.kind || "expense"} disabled={!!v.id}>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+              </label>
+              <p className="small muted">Renaming updates existing transactions and budgets.</p>
+            </>
+          )}
           {modal.type === "entry" && (
             <>
               <label>
@@ -1103,9 +1103,11 @@ function Editor({
                   <option value="cancelled">Cancelled</option>
                 </select>
               </label>
-              <p className="small muted">Active subscriptions deduct from the selected account on each due date.
-                Past due dates create catch-up expenses when saved. Resuming a paused subscription also catches up
-                missed dates; change Next due first to skip them.</p>
+              <p className="small muted">
+                Active subscriptions deduct from the selected account on each due date. Past due dates create catch-up
+                expenses when saved. Resuming a paused subscription also catches up missed dates; change Next due first
+                to skip them.
+              </p>
             </>
           )}
           {modal.type === "goal" && (
@@ -1156,36 +1158,110 @@ function Editor({
   );
 }
 
-function CategoryManager({ data, close, edit, create, pending }: {
-  data: Route.ComponentProps["loaderData"]; close: () => void;
-  edit: (value: {id:string;name:string;kind:string}) => void; create: () => void;
-  pending: boolean; error?: string;
+function CategoryManager({
+  data,
+  close,
+  edit,
+  create,
+  pending,
+}: {
+  data: Route.ComponentProps["loaderData"];
+  close: () => void;
+  edit: (value: { id: string; name: string; kind: string }) => void;
+  create: () => void;
+  pending: boolean;
+  error?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const fetcher = useFetcher<typeof action>();
-  useEffect(() => { dialog.current?.showModal(); }, []);
-  return <dialog ref={dialog} className="editor" aria-label="Manage categories" onCancel={close} onClick={e => { if(e.target === dialog.current) close(); }}>
-    <div className="editor-inner">
-      <div className="panel-heading"><h2>Categories</h2><button className="icon-button" onClick={close} aria-label="Close categories"><X size={19}/></button></div>
-      <p className="small muted">Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the fallback and cannot be changed.</p>
-      <div className="category-list">
-        {(["expense", "income"] as const).map(kind => <section key={kind}>
-          <h2>{kind === "expense" ? "Expenses" : "Income"}</h2>
-          {data.categories.filter(c => c.kind === kind).map(c => <div className="category-row" key={c.id}>
-            <span>{c.name}</span>
-            {c.name !== "Other" && <div className="category-actions">
-              <button className="text-button" disabled={pending || fetcher.state !== "idle"} onClick={() => edit(c)}>Edit</button>
-              <fetcher.Form method="post" onSubmit={e => { if(!confirm('Delete "' + c.name + '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.')) e.preventDefault(); }}>
-                <input type="hidden" name="intent" value="delete_category"/><input type="hidden" name="id" value={c.id}/>
-                <button className="text-button negative" disabled={fetcher.state !== "idle"}>Delete</button>
-              </fetcher.Form>
-            </div>}
-          </div>)}
-        </section>)}
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="editor"
+      aria-label="Manage categories"
+      onCancel={close}
+      onClick={(e) => {
+        if (e.target === dialog.current) close();
+      }}
+    >
+      <div className="editor-inner">
+        <div className="panel-heading">
+          <h2>Categories</h2>
+          <button className="icon-button" onClick={close} aria-label="Close categories">
+            <X size={19} />
+          </button>
+        </div>
+        <p className="small muted">
+          Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the
+          fallback and cannot be changed.
+        </p>
+        <div className="category-list">
+          {(["expense", "income"] as const).map((kind) => (
+            <section key={kind}>
+              <h2>{kind === "expense" ? "Expenses" : "Income"}</h2>
+              {data.categories
+                .filter((c) => c.kind === kind)
+                .map((c) => (
+                  <div className="category-row" key={c.id}>
+                    <span>{c.name}</span>
+                    {c.name !== "Other" && (
+                      <div className="category-actions">
+                        <button
+                          className="text-button"
+                          disabled={pending || fetcher.state !== "idle"}
+                          onClick={() => edit(c)}
+                        >
+                          Edit
+                        </button>
+                        <fetcher.Form
+                          method="post"
+                          onSubmit={(e) => {
+                            if (
+                              !confirm(
+                                'Delete "' +
+                                  c.name +
+                                  '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.',
+                              )
+                            )
+                              e.preventDefault();
+                          }}
+                        >
+                          <input type="hidden" name="intent" value="delete_category" />
+                          <input type="hidden" name="id" value={c.id} />
+                          <button className="text-button negative" disabled={fetcher.state !== "idle"}>
+                            Delete
+                          </button>
+                        </fetcher.Form>
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </section>
+          ))}
+        </div>
+        {fetcher.data?.error && (
+          <p className="error" role="alert">
+            {fetcher.data.error}
+          </p>
+        )}
+        {fetcher.data?.message && (
+          <p className="small" role="status">
+            {fetcher.data.message}
+          </p>
+        )}
+        <div className="editor-actions">
+          <button className="secondary" onClick={close}>
+            Done
+          </button>
+          <button className="primary" onClick={create} disabled={fetcher.state !== "idle"}>
+            <Plus size={14} />
+            New category
+          </button>
+        </div>
       </div>
-      {fetcher.data?.error && <p className="error" role="alert">{fetcher.data.error}</p>}
-      {fetcher.data?.message && <p className="small" role="status">{fetcher.data.message}</p>}
-      <div className="editor-actions"><button className="secondary" onClick={close}>Done</button><button className="primary" onClick={create} disabled={fetcher.state !== "idle"}><Plus size={14}/>New category</button></div>
-    </div>
-  </dialog>;
+    </dialog>
+  );
 }

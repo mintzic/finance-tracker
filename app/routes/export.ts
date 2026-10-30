@@ -3,7 +3,11 @@ import { sqlite } from '../db/connection.server';
 import { csvHeaders, csvCell } from '../lib/import.server';
 import { decimal } from '../lib/money';
 import { deductSubscriptions } from '../lib/subscriptions.server';
+import { withProfile } from '../lib/profiles.server';
 export async function loader({request}:Route.LoaderArgs) {
+  return withProfile(request, () => exportTransactions());
+}
+function exportTransactions() {
   deductSubscriptions(sqlite);
   const rows=sqlite.prepare('SELECT e.*,w.name account,d.name destination FROM entries e JOIN wallets w ON w.id=e.wallet_id LEFT JOIN wallets d ON d.id=e.destination_id ORDER BY e.date,e.id').iterate();
   const encoder=new TextEncoder();

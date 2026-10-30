@@ -1,6 +1,6 @@
 export function minor(value: string): number {
   if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(value.trim()))
-    throw new Error("Enter a valid SGD amount with at most two decimal places.");
+    throw new Error("Enter a valid amount with at most two decimal places.");
   const negative = value.trim().startsWith("-");
   const [whole, fraction = ""] = value.trim().replace("-", "").split(".");
   const result = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
@@ -8,9 +8,10 @@ export function minor(value: string): number {
   return negative ? -result : result;
 }
 
-export const money = (value: number) => {
+export const money = (value: number, language = "en-SG", currency = "SGD") => {
   if (!Number.isSafeInteger(value)) throw new Error("Balance exceeds the supported integer range.");
-  return new Intl.NumberFormat("en-SG", { style: "currency", currency: "SGD" }).format(value / 100);
+  const number = new Intl.NumberFormat(language, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100);
+  return `${currency} ${number}`;
 };
 
 export const decimal = (value: number) =>

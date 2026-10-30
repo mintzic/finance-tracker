@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useContext } from "react";
 import { useTable, tableFeatures, flexRender, type ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from "lucide-react";
-import { money } from "../lib/money";
+import { Preferences, useMoney } from "../lib/preferences";
 import type { Entry } from "../lib/ledger.server";
 
 // Filtering, sorting, and pagination are handled by the server loader.
@@ -17,6 +17,8 @@ export function TransactionTable({
   onEdit: (entry: Entry) => void;
   compact?: boolean;
 }) {
+  const money = useMoney();
+  const { language } = useContext(Preferences);
   const columns = useMemo<TransactionColumn[]>(
     () => [
       {
@@ -64,7 +66,7 @@ export function TransactionTable({
         header: "Date",
         cell: ({ getValue }) => (
           <span className="muted nowrap">
-            {new Date(String(getValue()) + "T00:00:00").toLocaleDateString("en-SG", { day: "numeric", month: "short" })}
+            {new Date(String(getValue()) + "T00:00:00").toLocaleDateString(language, { day: "numeric", month: "short" })}
           </span>
         ),
       },
@@ -100,7 +102,7 @@ export function TransactionTable({
         ),
       },
     ],
-    [compact, onEdit],
+    [compact, onEdit, language, money],
   );
   const table = useTable({
     features,

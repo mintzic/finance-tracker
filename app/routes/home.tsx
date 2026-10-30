@@ -26,6 +26,7 @@ import {
   PawPrint,
   Menu,
   Target,
+  UserRound,
 } from "lucide-react";
 import type { Route } from "./+types/home";
 import { sameOrigin } from "../lib/workspace.server";
@@ -33,23 +34,26 @@ import { dashboard } from "../lib/dashboard.server";
 import { mutate } from "../lib/actions.server";
 import { boundedForm } from "../lib/receipts.server";
 
-import { decimal, money, today } from "../lib/money";
+import { decimal, today } from "../lib/money";
+import { Preferences, useMoney, translate } from "../lib/preferences";
 import { TransactionTable } from "../components/transaction-table";
 import { SpendingChart, TrendChart } from "../components/charts";
 import { Button } from "../components/ui/button";
 import { WorkspaceCover } from "../components/workspace-cover";
 import type { Entry } from "../lib/ledger.server";
 import catIcon from "../../desktop/resources/icon.png";
+import { withProfile, listProfiles } from "../lib/profiles.server";
+import { UserSettings } from "../components/user-settings";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return dashboard(new URL(request.url));
+  return withProfile(request, profile => ({ ...dashboard(new URL(request.url)), profile, profiles: listProfiles() }));
 }
 
 export async function action({ request }: Route.ActionArgs) {
   sameOrigin(request);
   try {
     const form = await boundedForm(request);
-    return await mutate(form);
+    return await withProfile(request, () => mutate(form));
   } catch (error) {
     if (error instanceof Response) throw error;
     return {
@@ -88,14 +92,20 @@ const navigation = [
   ["reports", "Reports", ChartNoAxesCombined],
 ] as const;
 type Modal = {
-  type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories";
+  type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories" | "reset";
   value?: any;
 };
 
 export default function Home({ loaderData: d, actionData }: Route.ComponentProps) {
+  return <Preferences.Provider value={d.profile}><HomeContent loaderData={d} actionData={actionData} /></Preferences.Provider>;
+}
+function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "loaderData" | "actionData">) {
+  const money = useMoney();
+  const t = (text: string) => translate(d.profile.language, text);
   const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
   const [params] = useSearchParams();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
   const pending = useNavigation().state !== "idle";
@@ -111,7 +121,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
 
   const edit = (entry: Entry) => setModal({ type: "entry", value: entry });
   const total = d.wallets.reduce((sum, w) => sum + w.balance, 0);
-  const monthName = new Date(d.month + "-01T12:00:00").toLocaleDateString("en-SG", { month: "long", year: "numeric" });
+  const monthName = new Date(d.month + "-01T12:00:00").toLocaleDateString(d.profile.language, { month: "long", year: "numeric" });
   const title = navigation.find((n) => n[0] === d.section)?.[1] || "Import transactions";
   const changePage = (page: number) => {
     const p = new URLSearchParams(params);
@@ -138,7 +148,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               className={d.section === key ? "active" : ""}
             >
               <Icon size={17} />
-              {label}
+              {t(label)}
               {d.section === key && <span className="active-dot" />}
             </Link>
           ))}
@@ -150,7 +160,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             }}
           >
             <SlidersHorizontal size={17} />
-            Categories
+            {t("Categories")}
           </button>
         </nav>
         <div className="sidebar-bottom">
@@ -161,11 +171,11 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
           </div>
           <Link to={href("import")} className="utility-link">
             <Upload size={16} />
-            Import & export
+            {t("Import & export")}
           </Link>
           <div className="sidebar-footer">
             <span className="status-dot" />
-            Local workspace<span>SGD</span>
+            {d.profile.username}<span>{d.profile.currency}</span>
           </div>
         </div>
       </aside>
@@ -175,10 +185,13 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             <button className="mobile-toggle icon-button" onClick={() => setMobile(true)} aria-label="Open navigation">
               <Menu size={20} />
             </button>
-            <span>My workspace</span>
+            <span>{d.profile.username}</span>
             <ChevronRight size={13} />
-            <strong>{title}</strong>
+            <strong>{t(title)}</strong>
           </div>
+          <button type="button" className="user-menu-trigger" aria-label={t("User settings")} aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>
+            <UserRound size={18} /><span>{d.profile.username}</span>
+          </button>
         </header>
         <WorkspaceCover cover={d.cover} />
         <main className="content">
@@ -279,16 +292,15 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
                   <strong className="balance">{money(total)}</strong>
                   <p>
                     <span className="status-dot" />
-                    All recorded balances · SGD
+                    All recorded balances · {d.profile.currency}
                   </p>
                 </div>
                 {d.wallets
                   .filter((w) => !w.archived)
-                  .slice(0, 3)
                   .map((wallet, i) => (
                     <button
                       key={wallet.id}
-                      className={`account-card account-${i}`}
+                      className={`account-card account-${i % 3}`}
                       onClick={() => setModal({ type: "wallet", value: wallet })}
                     >
                       <div className="card-label">
@@ -721,7 +733,7 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
               <h2>Bring your records together.</h2>
               <p className="muted">
                 Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD;
-                amounts use positive SGD decimals, without currency symbols or thousands separators.
+                amounts use positive {d.profile.currency} decimals, without currency symbols or thousands separators.
               </p>
               <code className="csv-example">
                 date,kind,description,amount,account,destination,category,notes
@@ -814,10 +826,11 @@ export default function Home({ loaderData: d, actionData }: Route.ComponentProps
             <span>
               <span className="status-dot" />A little more clarity, every day.
             </span>
-            <span>SGD · Asia/Singapore</span>
+            <span>{d.profile.currency} · Asia/Singapore</span>
           </footer>
         </main>
       </div>
+      {settingsOpen && <UserSettings profile={d.profile} profiles={d.profiles} close={() => setSettingsOpen(false)} reset={() => { setSettingsOpen(false); setModal({ type: "reset" }); }} />}
       {modal?.type === "categories" && (
         <CategoryManager
           data={d}
@@ -871,6 +884,7 @@ function Progress({ value }: { value: number }) {
   );
 }
 function Budget({ budget: b }: { budget: { category: string; spent: number; amount: number } }) {
+  const money = useMoney();
   return (
     <div className="budget">
       <div>
@@ -914,6 +928,7 @@ function Editor({
   pending: boolean;
   error?: string;
 }) {
+  const money = useMoney();
   const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -933,6 +948,7 @@ function Editor({
     contribute: "A little closer to your goal",
     categories: "Categories",
     category: v.id ? "Edit category" : "New category",
+    reset: "Reset workspace",
   };
   const field = (label: string, name: string, type = "text", value: any = "", required = true) => (
     <label>
@@ -947,7 +963,7 @@ function Editor({
       />
     </label>
   );
-  const amount = (label = "Amount (SGD)", value = v.amount ? decimal(v.amount) : "") =>
+  const amount = (label = `Amount (${d.profile.currency})`, value = v.amount ? decimal(v.amount) : "") =>
     field(label, "amount", "text", value);
   const accounts = (name = "wallet_id", label = "Account", value = v.wallet_id || "") => (
     <label>
@@ -989,6 +1005,13 @@ function Editor({
         <Form method="post" encType="multipart/form-data" className="form-stack">
           <input type="hidden" name="intent" value={modal.type === "contribute" ? "contribute" : modal.type} />
           {v.id && modal.type !== "contribute" && <input type="hidden" name="id" value={v.id} />}
+          {modal.type === "reset" && (
+            <>
+              <p className="info-note">This permanently clears all accounts, transactions, receipts, budgets, subscriptions, savings goals, and the cover. Categories return to defaults. This cannot be undone.</p>
+              <a className="text-button" href="/export">Export transactions first (CSV excludes receipts)</a>
+              {field("Type RESET to confirm", "confirmation")}
+            </>
+          )}
           {modal.type === "category" && (
             <>
               {field("Category name", "name", "text", v.name)}
@@ -1056,9 +1079,9 @@ function Editor({
           {modal.type === "wallet" && (
             <>
               {field("Account name", "name", "text", v.name)}
-              {field("Opening balance (SGD)", "opening", "text", v.id ? decimal(v.opening) : "0.00")}
+              {field(`Opening balance (${d.profile.currency})`, "opening", "text", v.id ? decimal(v.opening) : "0.00")}
               <p className="small muted">
-                The opening balance is added to every recorded transaction to calculate the current balance. SGD only.
+                The opening balance is added to every recorded transaction to calculate the current balance.
               </p>
               <label className="checkbox">
                 <input type="checkbox" name="archived" defaultChecked={!!v.archived} />
@@ -1067,6 +1090,9 @@ function Editor({
               <p className="small muted">
                 Archived accounts remain in reports and total funds. Existing transactions can still be edited.
               </p>
+              {v.id && (
+                <p className="info-note">Current balance: {money(v.balance)}. Balance adjustment and account deletion are available below.</p>
+              )}
             </>
           )}
           {modal.type === "budget" && (
@@ -1080,7 +1106,7 @@ function Editor({
                 </select>
               </label>
               {field("Month", "month", "month", d.month)}
-              {amount("Monthly limit (SGD)")}
+              {amount(`Monthly limit (${d.profile.currency})`)}
               <p className="small muted">Saving replaces the limit for this category and month.</p>
             </>
           )}
@@ -1120,7 +1146,7 @@ function Editor({
           {modal.type === "goal" && (
             <>
               {field("Goal name", "name", "text", v.name)}
-              {amount("Target amount (SGD)")}
+              {amount(`Target amount (${d.profile.currency})`)}
               {field("Target date", "target_date", "date", v.target_date || today())}
             </>
           )}
@@ -1130,7 +1156,7 @@ function Editor({
               <p>
                 Allocate to <strong>{v.name}</strong>
               </p>
-              {amount("Allocation (SGD)", "")}
+              {amount(`Allocation (${d.profile.currency})`, "")}
               {field("Date", "date", "date", today())}
               <p className="small muted">
                 This allocation does not deduct from an account or create an expense. You can undo it from the
@@ -1150,11 +1176,38 @@ function Editor({
             <button className="primary" disabled={pending}>
               {pending
                 ? "Saving…"
+                : modal.type === "reset" ? "Reset workspace"
                 : "Save " +
                   (modal.type === "entry" ? "transaction" : modal.type === "contribute" ? "allocation" : modal.type)}
             </button>
           </div>
         </Form>
+        {modal.type === "wallet" && v.id && (
+          <>
+            <Form method="post" className="form-stack">
+              <h3>Adjust wallet balance</h3>
+              <input type="hidden" name="intent" value="adjust_wallet" />
+              <input type="hidden" name="id" value={v.id} />
+              {field(`Correct current balance (${d.profile.currency})`, "balance", "text", decimal(v.balance))}
+              <p className="small muted">Updates the opening balance by the difference. Historical balances change; transactions, income, and spending stay the same. Includes future transactions.</p>
+              <button className="secondary" disabled={pending}>Adjust balance</button>
+            </Form>
+            <Form method="post" className="form-stack">
+              <h3>Delete wallet</h3>
+              <input type="hidden" name="intent" value="delete_wallet" />
+              <input type="hidden" name="id" value={v.id} />
+              <label>Transaction handling
+                <select name="policy" defaultValue="keep">
+                  <option value="keep">Keep transactions — archive wallet</option>
+                  <option value="delete">Permanently delete wallet and linked records</option>
+                </select>
+              </label>
+              <p className="small muted">Archiving keeps reports and total funds. Permanent deletion removes linked transactions, receipts, subscriptions, and both sides of transfers, changing other wallet balances. This cannot be undone.</p>
+              {field("For permanent deletion, type DELETE", "confirmation", "text", "", false)}
+              <button className="secondary negative" disabled={pending}>Apply wallet removal</button>
+            </Form>
+          </>
+        )}
         {modal.type === "entry" && v.id && (
           <div className="delete-area">
             <DeleteForm intent="delete_entry" id={v.id} label="Delete transaction" />

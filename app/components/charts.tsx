@@ -3,7 +3,7 @@ import {
   XAxis, YAxis, CartesianGrid, Legend, LineChart, Line,
 } from 'recharts';
 import { Cat } from 'lucide-react';
-import { money } from '../lib/money';
+import { useMoney } from '../lib/preferences';
 
 const palette = ['#b99aff', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
 const tooltipStyle = { background: '#211d30', border: '1px solid #444', borderRadius: 8 };
@@ -13,6 +13,7 @@ export function SpendingChart({ data, total }: {
   total: number;
 }) {
   const hasSpending = data.some(row => row.amount > 0);
+  const money = useMoney();
   return (
     <div className="spending-content">
       <div className="donut">
@@ -50,6 +51,7 @@ export function TrendChart({ data, savings = false }: {
   savings?: boolean;
 }) {
   const hasIncome = data.some(row => row.income > 0);
+  const money = useMoney();
   const hasExpenses = data.some(row => row.expense > 0);
   const hasData = savings ? data.some(row => row.savings > 0) : hasIncome || hasExpenses;
   if (!hasData) {

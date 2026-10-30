@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, BrowserWindow, dialog, session, Menu } from 'electron';
 import { join } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,11 +40,13 @@ if (!app.requestSingleInstanceLock()) {
     window?.focus();
   });
   app.whenReady().then(async () => {
+    Menu.setApplicationMenu(null);
     // Set paths before importing the server build, which opens SQLite on import.
     const dataDirectory = app.getPath('userData');
     process.env.NODE_ENV = 'production';
     process.env.DATABASE_PATH = join(dataDirectory, 'finance.sqlite');
     process.env.RECEIPT_DIR = join(dataDirectory, 'receipts');
+    process.env.MIGRATION_DIR = join(app.getAppPath(), 'migrations');
     await migrate(process.env.DATABASE_PATH, join(app.getAppPath(), 'migrations'));
     const { startServer } = await import('./server.mjs');
     const local = await startServer(app.getAppPath());

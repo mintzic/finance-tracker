@@ -3,7 +3,11 @@ import { resolve } from 'node:path';
 import type { Route } from './+types/receipt';
 import { sqlite } from '../db/connection.server';
 import { receiptDirectory } from '../lib/receipts.server';
+import { withProfile } from '../lib/profiles.server';
 export async function loader({request,params}:Route.LoaderArgs) {
+  return withProfile(request, () => loadReceipt(params));
+}
+async function loadReceipt(params: Route.LoaderArgs['params']) {
   if(!/^[a-f0-9-]{36}$/.test(params.id)) throw new Response('Not found',{status:404});
   const receipt=sqlite.prepare('SELECT * FROM receipts WHERE id=?').get(params.id) as {filename:string;mime:string}|undefined;
   if(!receipt) throw new Response('Not found',{status:404});

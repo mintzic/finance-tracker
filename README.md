@@ -26,11 +26,11 @@
 
 Finance Tracker brings income, expenses, budgets, subscriptions, and savings goals together in a single workspace. Use it in your browser or as a standalone desktop app on Windows, macOS, and Linux.
 
-| Keep track | Plan ahead | Make it yours |
-| --- | --- | --- |
-| Record income, expenses, and transfers | Set monthly category budgets | Manage income and expense categories |
-| Organize accounts and attach receipts | Follow savings goals and contributions | Customize your workspace cover |
-| Import transactions from CSV and export records | Track recurring subscription expenses | Use the web or desktop app |
+| Keep track                                      | Plan ahead                             | Make it yours                        |
+| ----------------------------------------------- | -------------------------------------- | ------------------------------------ |
+| Record income, expenses, and transfers          | Set monthly category budgets           | Manage income and expense categories |
+| Organize accounts and attach receipts           | Follow savings goals and contributions | Customize your workspace cover       |
+| Import transactions from CSV and export records | Track recurring subscription expenses  | Use the web or desktop app           |
 
 Each installation stores its own data. Web and desktop workspaces are independent and do not sync automatically.
 
@@ -75,23 +75,23 @@ Web mode requires an explicit migration step before starting a new database or u
 
 ### What happens when you run a command?
 
-| Command | Database behavior |
-| --- | --- |
-| `npm run dev` | Opens or creates the SQLite file when the server loads; does not run migrations or create application tables. |
-| `npm run build` | Builds the web app; does not initialize tables or run migrations. |
-| `npm start` | Opens or creates the SQLite file; does not run migrations or create application tables. |
-| `npm run migrate` | Creates the database if needed and applies pending migrations to create or update tables. |
-| `npm run desktop:start` | Builds and launches the app; creates the database and applies pending migrations automatically. |
-| `npm run desktop:build` / `npm run desktop:pack` | Packages the app. Database initialization happens when the packaged app launches. |
+| Command                                          | Database behavior                                                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                    | Opens or creates the SQLite file when the server loads; does not run migrations or create application tables. |
+| `npm run build`                                  | Builds the web app; does not initialize tables or run migrations.                                             |
+| `npm start`                                      | Opens or creates the SQLite file; does not run migrations or create application tables.                       |
+| `npm run migrate`                                | Creates the database if needed and applies pending migrations to create or update tables.                     |
+| `npm run desktop:start`                          | Builds and launches the app; creates the database and applies pending migrations automatically.               |
+| `npm run desktop:build` / `npm run desktop:pack` | Packages the app. Database initialization happens when the packaged app launches.                             |
 
 ### Where your data lives
 
-| Mode / platform | Default location |
-| --- | --- |
-| Web | `data/finance.sqlite`, relative to the working directory |
-| Desktop · Windows | `%APPDATA%/Finance Tracker/` |
-| Desktop · macOS | `~/Library/Application Support/Finance Tracker/` |
-| Desktop · Linux | `$XDG_CONFIG_HOME/Finance Tracker/`, usually `~/.config/Finance Tracker/` |
+| Mode / platform   | Default location                                                          |
+| ----------------- | ------------------------------------------------------------------------- |
+| Web               | `data/finance.sqlite`, relative to the working directory                  |
+| Desktop · Windows | `%APPDATA%/Finance Tracker/`                                              |
+| Desktop · macOS   | `~/Library/Application Support/Finance Tracker/`                          |
+| Desktop · Linux   | `$XDG_CONFIG_HOME/Finance Tracker/`, usually `~/.config/Finance Tracker/` |
 
 Desktop data folders contain `finance.sqlite` and `receipts/`.
 
@@ -141,26 +141,24 @@ npm run desktop:build
 
 Outputs are written to `release/`:
 
-| Platform | Formats |
-| --- | --- |
-| Windows | NSIS `.exe` |
-| macOS | `.dmg`, `.zip` |
-| Linux | `.AppImage`, `.deb` |
+| Platform | Formats             |
+| -------- | ------------------- |
+| Windows  | NSIS `.exe`         |
+| macOS    | `.dmg`, `.zip`      |
+| Linux    | `.AppImage`, `.deb` |
 
 Builds use the machine's architecture by default. On macOS, use `npm run desktop:build -- --x64` for Intel or `npm run desktop:build -- --arm64` for Apple Silicon. Native compilation may require platform developer tools when SQLite prebuilt binaries are unavailable.
 
 Use `npm run desktop:pack` to create an unpacked application for inspection.
 
-The [desktop workflow](.github/workflows/desktop.yml) builds on Windows, macOS, and Linux when manually dispatched or when a `v*` tag is pushed. It tests the packaged app and uploads installers as workflow artifacts; it does not publish releases. Builds are unsigned by default. Public distribution should configure platform signing credentials and macOS notarization.
-
 To change the sleeping cat icon, replace [the app icon](desktop/resources/icon.png) with a square 1024 × 1024 PNG and rebuild.
 
 ## Development checks
 
-| Command | Purpose |
-| --- | --- |
-| `npm run typecheck` | Generate route types and check TypeScript. |
-| `npm run desktop:test` | After building, check migrations, persistence, local server access controls, static assets, and exports. |
+| Command                 | Purpose                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`     | Generate route types and check TypeScript.                                                                            |
+| `npm run desktop:test`  | After building, check migrations, persistence, local server access controls, static assets, and exports.              |
 | `npm run desktop:smoke` | After building and rebuilding SQLite for Electron, launch against a temporary database and check dashboard rendering. |
 
 Built with React Router, React, TypeScript, Tailwind CSS, Drizzle ORM, SQLite, and Electron.

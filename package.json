@@ -1,12 +1,14 @@
 {
   "name": "finance-tracker",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.0-beta",
   "description": "A local finance tracker for income, expenses, budgets, and subscriptions",
   "author": "Finance Tracker",
   "main": "desktop/main.mjs",
   "type": "module",
   "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "migrate": "node --experimental-strip-types --env-file-if-exists=.env scripts/migrate.ts",
     "build": "react-router build",
     "dev": "react-router dev",
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "@react-router/dev": "^8.5.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22",
@@ -50,8 +53,11 @@
     "@types/react-dom": "^19.2.7",
     "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
+    "eslint": "^10.14.0",
+    "prettier": "3.9.10",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.0.3"
   }
 }

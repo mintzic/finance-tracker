@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Form, Link, useFetcher, useNavigation, useSearchParams } from "react-router";
+import { useEffect, useRef, useState } from 'react';
+import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router';
 import {
   Wallet,
   LayoutDashboard,
@@ -27,26 +27,26 @@ import {
   Menu,
   Target,
   UserRound,
-} from "lucide-react";
-import type { Route } from "./+types/home";
-import { sameOrigin } from "../lib/workspace.server";
-import { dashboard } from "../lib/dashboard.server";
-import { mutate } from "../lib/actions.server";
-import { boundedForm } from "../lib/receipts.server";
+} from 'lucide-react';
+import type { Route } from './+types/home';
+import { sameOrigin } from '../lib/workspace.server';
+import { dashboard } from '../lib/dashboard.server';
+import { mutate } from '../lib/actions.server';
+import { boundedForm } from '../lib/receipts.server';
 
-import { decimal, today } from "../lib/money";
-import { Preferences, useMoney, translate } from "../lib/preferences";
-import { TransactionTable } from "../components/transaction-table";
-import { SpendingChart, TrendChart } from "../components/charts";
-import { Button } from "../components/ui/button";
-import { WorkspaceCover } from "../components/workspace-cover";
-import type { Entry } from "../lib/ledger.server";
-import catIcon from "../../desktop/resources/icon.png";
-import { withProfile, listProfiles } from "../lib/profiles.server";
-import { UserSettings } from "../components/user-settings";
+import { decimal, today } from '../lib/money';
+import { Preferences, useMoney, translate } from '../lib/preferences';
+import { TransactionTable } from '../components/transaction-table';
+import { SpendingChart, TrendChart } from '../components/charts';
+import { Button } from '../components/ui/button';
+import { WorkspaceCover } from '../components/workspace-cover';
+import type { Entry } from '../lib/ledger.server';
+import catIcon from '../../desktop/resources/icon.png';
+import { withProfile, listProfiles } from '../lib/profiles.server';
+import { UserSettings } from '../components/user-settings';
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return withProfile(request, profile => ({ ...dashboard(new URL(request.url)), profile, profiles: listProfiles() }));
+  return withProfile(request, (profile) => ({ ...dashboard(new URL(request.url)), profile, profiles: listProfiles() }));
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -55,83 +55,86 @@ export async function action({ request }: Route.ActionArgs) {
     const form = await boundedForm(request);
     return await withProfile(request, () => mutate(form));
   } catch (error) {
-    if (error instanceof Response) throw error;
+    if (error instanceof Response) {
+      throw error;
+    }
+
     return {
-      error:
-        error instanceof Error && !error.message.includes("SQLITE")
-          ? error.message
-          : "Unable to save. Please check your input.",
+      error: error instanceof Error && !error.message.includes('SQLITE') ? error.message : 'Unable to save. Please check your input.',
     };
   }
 }
 
 export function meta() {
-  return [
-    { title: "Folio — Personal finance" },
-    { name: "description", content: "A private space for a clearer financial life." },
-  ];
+  return [{ title: 'Folio — Personal finance' }, { name: 'description', content: 'A private space for a clearer financial life.' }];
 }
 
 export function headers() {
   return {
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "same-origin",
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
   };
 }
 
 const navigation = [
-  ["dashboard", "Overview", LayoutDashboard],
-  ["accounts", "Accounts", Wallet],
-  ["income", "Income", ArrowDownLeft],
-  ["expenses", "Expenses", ArrowUpRight],
-  ["transfers", "Transfers", ArrowLeftRight],
-  ["budgets", "Budgets", SlidersHorizontal],
-  ["subscriptions", "Subscriptions", Repeat2],
-  ["goals", "Savings goals", Flag],
-  ["reports", "Reports", ChartNoAxesCombined],
+  ['dashboard', 'Overview', LayoutDashboard],
+  ['accounts', 'Accounts', Wallet],
+  ['income', 'Income', ArrowDownLeft],
+  ['expenses', 'Expenses', ArrowUpRight],
+  ['transfers', 'Transfers', ArrowLeftRight],
+  ['budgets', 'Budgets', SlidersHorizontal],
+  ['subscriptions', 'Subscriptions', Repeat2],
+  ['goals', 'Savings goals', Flag],
+  ['reports', 'Reports', ChartNoAxesCombined],
 ] as const;
 type Modal = {
-  type: "entry" | "wallet" | "budget" | "subscription" | "goal" | "contribute" | "category" | "categories" | "reset";
+  type: 'entry' | 'wallet' | 'budget' | 'subscription' | 'goal' | 'contribute' | 'category' | 'categories' | 'reset';
   value?: any;
 };
 
 export default function Home({ loaderData: d, actionData }: Route.ComponentProps) {
-  return <Preferences.Provider value={d.profile}><HomeContent loaderData={d} actionData={actionData} /></Preferences.Provider>;
+  return (
+    <Preferences.Provider value={d.profile}>
+      <HomeContent loaderData={d} actionData={actionData} />
+    </Preferences.Provider>
+  );
 }
-function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "loaderData" | "actionData">) {
+function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, 'loaderData' | 'actionData'>) {
   const money = useMoney();
   const t = (text: string) => translate(d.profile.language, text);
-  const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
-  const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
+  const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
+  const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
   const [params] = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
-  const pending = useNavigation().state !== "idle";
+  const pending = useNavigation().state !== 'idle';
 
   useEffect(() => {
-    if (actionData && "message" in actionData && !("preview" in actionData)) setModal(null);
+    if (actionData && 'message' in actionData && !('preview' in actionData)) {
+      setModal(null);
+    }
   }, [actionData]);
 
   const href = (view: string, extra: Record<string, string> = {}) => {
     const p = new URLSearchParams({ view, month: d.month, ...extra });
-    return "/?" + p;
+    return '/?' + p;
   };
 
-  const edit = (entry: Entry) => setModal({ type: "entry", value: entry });
+  const edit = (entry: Entry) => setModal({ type: 'entry', value: entry });
   const total = d.wallets.reduce((sum, w) => sum + w.balance, 0);
-  const monthName = new Date(d.month + "-01T12:00:00").toLocaleDateString(d.profile.language, { month: "long", year: "numeric" });
-  const title = navigation.find((n) => n[0] === d.section)?.[1] || "Import transactions";
+  const monthName = new Date(d.month + '-01T12:00:00').toLocaleDateString(d.profile.language, { month: 'long', year: 'numeric' });
+  const title = navigation.find((n) => n[0] === d.section)?.[1] || 'Import transactions';
   const changePage = (page: number) => {
     const p = new URLSearchParams(params);
-    p.set("page", String(page));
-    return "/?" + p;
+    p.set('page', String(page));
+    return '/?' + p;
   };
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobile ? "mobile-open" : ""}`}>
+      <aside className={`sidebar ${mobile ? 'mobile-open' : ''}`}>
         <Link to="/" className="brand" aria-label="Folio home">
           <img className="brand-cat" src={catIcon} alt="" width="42" height="42" />
           folio<span className="brand-dot">.</span>
@@ -141,12 +144,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
         </button>
         <nav>
           {navigation.map(([key, label, Icon]) => (
-            <Link
-              key={key}
-              to={href(key)}
-              onClick={() => setMobile(false)}
-              className={d.section === key ? "active" : ""}
-            >
+            <Link key={key} to={href(key)} onClick={() => setMobile(false)} className={d.section === key ? 'active' : ''}>
               <Icon size={17} />
               {t(label)}
               {d.section === key && <span className="active-dot" />}
@@ -156,26 +154,29 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
             type="button"
             onClick={() => {
               setMobile(false);
-              setModal({ type: "categories" });
-            }}
-          >
+              setModal({ type: 'categories' });
+            }}>
             <SlidersHorizontal size={17} />
-            {t("Categories")}
+            {t('Categories')}
           </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="cat-companion">
             <Cat size={24} strokeWidth={1.5} aria-hidden="true" />
-            <p>A little set aside.<br />A little peace of mind.</p>
+            <p>
+              A little set aside.
+              <br />A little peace of mind.
+            </p>
             <span>Small steps. Steady habits.</span>
           </div>
-          <Link to={href("import")} className="utility-link">
+          <Link to={href('import')} className="utility-link">
             <Upload size={16} />
-            {t("Import & export")}
+            {t('Import & export')}
           </Link>
           <div className="sidebar-footer">
             <span className="status-dot" />
-            {d.profile.username}<span>{d.profile.currency}</span>
+            {d.profile.username}
+            <span>{d.profile.currency}</span>
           </div>
         </div>
       </aside>
@@ -189,8 +190,14 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
             <ChevronRight size={13} />
             <strong>{t(title)}</strong>
           </div>
-          <button type="button" className="user-menu-trigger" aria-label={t("User settings")} aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>
-            <UserRound size={18} /><span>{d.profile.username}</span>
+          <button
+            type="button"
+            className="user-menu-trigger"
+            aria-label={t('User settings')}
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(true)}>
+            <UserRound size={18} />
+            <span>{d.profile.username}</span>
           </button>
         </header>
         <WorkspaceCover cover={d.cover} />
@@ -199,23 +206,21 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
             <div>
               <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
               <h1>
-                {d.section === "dashboard" ? "A clearer picture." : title}
-                {d.section === "dashboard" && (
-                  <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />
-                )}
+                {d.section === 'dashboard' ? 'A clearer picture.' : title}
+                {d.section === 'dashboard' && <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />}
               </h1>
               <p className="muted">
-                {d.section === "dashboard"
-                  ? "A little overview of where you are, and where you’re going."
-                  : d.section === "reports"
-                    ? "Understand your cash flow and the habits behind it."
-                    : d.section === "accounts"
-                      ? "Every account, one place. Balances calculated from your records."
-                      : d.section === "goals"
-                        ? "Put a little aside for the things that mean a lot."
-                        : d.section === "subscriptions"
-                          ? "Keep an eye on the little things that add up."
-                          : "A place for every detail. A little more peace of mind."}
+                {d.section === 'dashboard'
+                  ? 'A little overview of where you are, and where you’re going.'
+                  : d.section === 'reports'
+                    ? 'Understand your cash flow and the habits behind it.'
+                    : d.section === 'accounts'
+                      ? 'Every account, one place. Balances calculated from your records.'
+                      : d.section === 'goals'
+                        ? 'Put a little aside for the things that mean a lot.'
+                        : d.section === 'subscriptions'
+                          ? 'Keep an eye on the little things that add up.'
+                          : 'A place for every detail. A little more peace of mind.'}
               </p>
             </div>
             <div className="heading-actions">
@@ -234,18 +239,18 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                   <button>Apply</button>
                 </noscript>
               </Form>
-              <Button onClick={() => setModal({ type: "entry" })} className="primary">
+              <Button onClick={() => setModal({ type: 'entry' })} className="primary">
                 <Plus size={16} />
                 Add transaction
               </Button>
             </div>
           </div>
-          {actionData && "error" in actionData && actionData.error && (
+          {actionData && 'error' in actionData && actionData.error && (
             <div role="alert" className="notice error">
               {actionData.error}
             </div>
           )}
-          {actionData && "message" in actionData && actionData.message && (
+          {actionData && 'message' in actionData && actionData.message && (
             <div role="status" className="notice">
               {actionData.message}
             </div>
@@ -255,12 +260,10 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               <div>
                 <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
                 <h2>Make yourself at home.</h2>
-                <p className="muted">
-                  Create your first account, or explore with clearly labelled fictional demo data.
-                </p>
+                <p className="muted">Create your first account, or explore with clearly labelled fictional demo data.</p>
               </div>
               <div className="flex-actions">
-                <button className="primary" onClick={() => setModal({ type: "wallet" })}>
+                <button className="primary" onClick={() => setModal({ type: 'wallet' })}>
                   Create account
                 </button>
                 <Form method="post">
@@ -272,14 +275,14 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               </div>
             </div>
           )}
-          {d.section === "dashboard" && (
+          {d.section === 'dashboard' && (
             <>
               <div className="section-heading">
                 <h2>
                   <Wallet size={17} />
                   Your accounts <span className="count">{d.wallets.filter((w) => !w.archived).length}</span>
                 </h2>
-                <Link to={href("accounts")}>
+                <Link to={href('accounts')}>
                   Manage accounts <ArrowRight size={14} />
                 </Link>
               </div>
@@ -298,11 +301,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 {d.wallets
                   .filter((w) => !w.archived)
                   .map((wallet, i) => (
-                    <button
-                      key={wallet.id}
-                      className={`account-card account-${i % 3}`}
-                      onClick={() => setModal({ type: "wallet", value: wallet })}
-                    >
+                    <button key={wallet.id} className={`account-card account-${i % 3}`} onClick={() => setModal({ type: 'wallet', value: wallet })}>
                       <div className="card-label">
                         <span>{wallet.name}</span>
                         {i === 0 ? <Landmark size={18} /> : i === 1 ? <CreditCard size={18} /> : <Coins size={18} />}
@@ -339,9 +338,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                   </span>
                   <span>
                     <small>Net cash flow</small>
-                    <strong className={d.sum.income - d.sum.expense >= 0 ? "positive" : "negative"}>
-                      {money(d.sum.income - d.sum.expense)}
-                    </strong>
+                    <strong className={d.sum.income - d.sum.expense >= 0 ? 'positive' : 'negative'}>{money(d.sum.income - d.sum.expense)}</strong>
                   </span>
                 </div>
                 <p>
@@ -359,7 +356,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                   <SpendingChart data={d.spending} total={d.sum.expense} />
                   <div className="panel-footer">
                     <span className="muted small">Every little thing adds up.</span>
-                    <Link to={href("reports")}>
+                    <Link to={href('reports')}>
                       Explore reports <ArrowRight size={13} />
                     </Link>
                   </div>
@@ -367,7 +364,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 <section className="panel">
                   <div className="panel-heading">
                     <h2>Room in your budget</h2>
-                    <Link to={href("budgets")}>
+                    <Link to={href('budgets')}>
                       View all <ArrowRight size={13} />
                     </Link>
                   </div>
@@ -379,7 +376,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                       <div className="empty">
                         <Target size={25} />
                         <p>A plan for the month ahead.</p>
-                        <button className="text-button" onClick={() => setModal({ type: "budget" })}>
+                        <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
                           Set a category budget →
                         </button>
                       </div>
@@ -387,7 +384,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                   </div>
                   <div className="panel-footer">
                     <span className="muted small">A guide, with a little breathing room.</span>
-                    <button className="text-button" onClick={() => setModal({ type: "budget" })}>
+                    <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
                       <Plus size={13} />
                       Budget
                     </button>
@@ -395,9 +392,9 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 </section>
               </div>
               {[
-                ["Recent expenses", d.recentExpenses, "expenses"],
-                ["Recent income", d.recentIncome, "income"],
-                ["Recent transfers", d.recentTransfers, "transfers"],
+                ['Recent expenses', d.recentExpenses, 'expenses'],
+                ['Recent income', d.recentIncome, 'income'],
+                ['Recent transfers', d.recentTransfers, 'transfers'],
               ].map(([label, rows, section]) => (
                 <section key={String(label)} className="panel table-panel">
                   <div className="panel-heading">
@@ -411,42 +408,37 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               ))}
             </>
           )}
-          {d.section === "accounts" && (
+          {d.section === 'accounts' && (
             <>
               <div className="section-heading">
                 <h2>
                   Account balances <span className="muted small">All time, including future-dated records</span>
                 </h2>
-                <button className="text-button" onClick={() => setModal({ type: "wallet" })}>
+                <button className="text-button" onClick={() => setModal({ type: 'wallet' })}>
                   <Plus size={15} />
                   New account
                 </button>
               </div>
               <div className="account-grid standalone">
                 {d.wallets.map((wallet, i) => (
-                  <button
-                    className={`account-card account-${i % 3}`}
-                    key={wallet.id}
-                    onClick={() => setModal({ type: "wallet", value: wallet })}
-                  >
+                  <button className={`account-card account-${i % 3}`} key={wallet.id} onClick={() => setModal({ type: 'wallet', value: wallet })}>
                     <div className="card-label">
                       <span>{wallet.name}</span>
                       <Landmark size={18} />
                     </div>
                     <strong className="balance">{money(wallet.balance)}</strong>
                     <p>
-                      Opening {money(wallet.opening)} {wallet.archived ? "· Archived" : ""}
+                      Opening {money(wallet.opening)} {wallet.archived ? '· Archived' : ''}
                     </p>
                   </button>
                 ))}
               </div>
               <p className="muted small">
-                Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary;
-                untracked assets and liabilities are excluded.
+                Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary; untracked assets and liabilities are excluded.
               </p>
             </>
           )}
-          {["income", "expenses", "transfers"].includes(d.section) && (
+          {['income', 'expenses', 'transfers'].includes(d.section) && (
             <section className="panel table-panel">
               <div className="panel-heading">
                 <h2>
@@ -462,12 +454,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 <input type="hidden" name="month" value={d.month} />
                 <div className="search-field">
                   <Search size={15} />
-                  <input
-                    name="q"
-                    defaultValue={d.q}
-                    placeholder="Search description or notes"
-                    aria-label="Search transactions"
-                  />
+                  <input name="q" defaultValue={d.q} placeholder="Search description or notes" aria-label="Search transactions" />
                 </div>
                 <select name="account" defaultValue={d.account} aria-label="Filter account">
                   <option value="">All accounts</option>
@@ -479,12 +466,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 </select>
                 <select name="category" defaultValue={d.category} aria-label="Filter category">
                   <option value="">All categories</option>
-                  {(d.section === "income"
-                    ? incomeCategories
-                    : d.section === "transfers"
-                      ? ["Transfer"]
-                      : expenseCategories
-                  ).map((c) => (
+                  {(d.section === 'income' ? incomeCategories : d.section === 'transfers' ? ['Transfer'] : expenseCategories).map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </select>
@@ -501,11 +483,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               </Form>
               <TransactionTable rows={d.transactions} onEdit={edit} />
               <div className="pagination">
-                <span>
-                  {d.count
-                    ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}`
-                    : "0 transactions"}
-                </span>
+                <span>{d.count ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}` : '0 transactions'}</span>
                 <div>
                   {d.page > 1 && (
                     <Link to={changePage(d.page - 1)}>
@@ -524,11 +502,11 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               </div>
             </section>
           )}
-          {d.section === "budgets" && (
+          {d.section === 'budgets' && (
             <>
               <div className="section-heading">
                 <h2>{monthName} budgets</h2>
-                <button className="text-button" onClick={() => setModal({ type: "budget" })}>
+                <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
                   <Plus size={15} />
                   Set budget
                 </button>
@@ -537,12 +515,12 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 {d.budgets.map((b) => (
                   <section className="panel budget-card" key={b.id}>
                     <Budget budget={b} />
-                    <p className={b.spent > b.amount ? "negative" : "muted"}>
-                      {b.spent > b.amount ? "Over budget by " : "Remaining "}
+                    <p className={b.spent > b.amount ? 'negative' : 'muted'}>
+                      {b.spent > b.amount ? 'Over budget by ' : 'Remaining '}
                       {money(Math.abs(b.amount - b.spent))}
                     </p>
                     <div className="flex-actions">
-                      <button className="text-button" onClick={() => setModal({ type: "budget", value: b })}>
+                      <button className="text-button" onClick={() => setModal({ type: 'budget', value: b })}>
                         Edit limit
                       </button>
                       <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" />
@@ -553,42 +531,33 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               {!d.budgets.length && <Empty text="No budgets yet. Give this month a little direction." />}
             </>
           )}
-          {d.section === "subscriptions" && (
+          {d.section === 'subscriptions' && (
             <>
               <div className="section-heading">
                 <h2>Your recurring commitments</h2>
-                <button className="text-button" onClick={() => setModal({ type: "subscription" })}>
+                <button className="text-button" onClick={() => setModal({ type: 'subscription' })}>
                   <Plus size={15} />
                   New subscription
                 </button>
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under{" "}
-                {d.categories.find((c) => c.id === "expense-4")?.name || "Other"} in their selected account when you
-                open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account
-                subscriptions are skipped.
+                Active subscriptions automatically record expenses under {d.categories.find((c) => c.id === 'expense-4')?.name || 'Other'} in their selected
+                account when you open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
               </p>
               <div className="three-grid">
                 {d.subscriptions.map((s) => (
-                  <button
-                    key={s.id}
-                    className="panel subscription-card"
-                    onClick={() => setModal({ type: "subscription", value: s })}
-                  >
+                  <button key={s.id} className="panel subscription-card" onClick={() => setModal({ type: 'subscription', value: s })}>
                     <div className="card-label">
                       <span className="summary-icon transfer">
                         <Repeat2 size={18} />
                       </span>
-                      <span className={`tag ${s.status === "active" ? "positive" : ""}`}>{s.status}</span>
+                      <span className={`tag ${s.status === 'active' ? 'positive' : ''}`}>{s.status}</span>
                     </div>
                     <h2>{s.name}</h2>
                     <strong className="balance">
                       {money(s.amount)}
-                      <small>
-                        {" "}
-                        / {s.recurrence === "weekly" ? "week" : s.recurrence === "monthly" ? "month" : "year"}
-                      </small>
+                      <small> / {s.recurrence === 'weekly' ? 'week' : s.recurrence === 'monthly' ? 'month' : 'year'}</small>
                     </strong>
                     <p className="muted">{s.account_name}</p>
                     <div className="panel-footer">
@@ -600,19 +569,18 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               {!d.subscriptions.length && <Empty text="No subscriptions yet. Add one to keep it in view." />}
             </>
           )}
-          {d.section === "goals" && (
+          {d.section === 'goals' && (
             <>
               <div className="section-heading">
                 <h2>Good things take a little planning</h2>
-                <button className="text-button" onClick={() => setModal({ type: "goal" })}>
+                <button className="text-button" onClick={() => setModal({ type: 'goal' })}>
                   <Plus size={15} />
                   New goal
                 </button>
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Goal contributions track allocations only. They do not move money between accounts or count as expenses.
-                Progress is all time.
+                Goal contributions track allocations only. They do not move money between accounts or count as expenses. Progress is all time.
               </p>
               <div className="two-grid">
                 {d.goals.map((g) => (
@@ -621,7 +589,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                       <span className="summary-icon transfer">
                         <Flag size={20} />
                       </span>
-                      <button className="text-button" onClick={() => setModal({ type: "goal", value: g })}>
+                      <button className="text-button" onClick={() => setModal({ type: 'goal', value: g })}>
                         Edit goal
                       </button>
                     </div>
@@ -635,7 +603,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                       <span>Target {g.target_date}</span>
                       <strong>{Math.round((g.saved / g.amount) * 100)}%</strong>
                     </div>
-                    <button className="secondary" onClick={() => setModal({ type: "contribute", value: g })}>
+                    <button className="secondary" onClick={() => setModal({ type: 'contribute', value: g })}>
                       <Plus size={14} />
                       Add allocation
                     </button>
@@ -677,7 +645,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
               )}
             </>
           )}
-          {d.section === "reports" && (
+          {d.section === 'reports' && (
             <>
               <div className="report-stats">
                 <Stat label="Monthly income" value={money(d.sum.income)} />
@@ -714,26 +682,26 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                       <div key={w.id}>
                         <span>
                           {w.name}
-                          {w.archived ? " · Archived" : ""}
+                          {w.archived ? ' · Archived' : ''}
                         </span>
                         <strong>{money(w.balance)}</strong>
                       </div>
                     ))}
                   </div>
                   <p className="chart-note">
-                    Opening balances plus records through {d.month} month end. A balance-only summary, excluding
-                    untracked assets and liabilities. Transfers are excluded from income and expenses.
+                    Opening balances plus records through {d.month} month end. A balance-only summary, excluding untracked assets and liabilities. Transfers are
+                    excluded from income and expenses.
                   </p>
                 </section>
               </div>
             </>
           )}
-          {d.section === "import" && (
+          {d.section === 'import' && (
             <section className="panel import-panel">
               <h2>Bring your records together.</h2>
               <p className="muted">
-                Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD;
-                amounts use positive {d.profile.currency} decimals, without currency symbols or thousands separators.
+                Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive {d.profile.currency}{' '}
+                decimals, without currency symbols or thousands separators.
               </p>
               <code className="csv-example">
                 date,kind,description,amount,account,destination,category,notes
@@ -741,8 +709,8 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 2026-10-01,expense,Coffee,6.50,Everyday,,Food & dining,
               </code>
               <p className="small muted">
-                Kinds: income, expense, transfer. Transfer category: Transfer. For transfers, supply a destination
-                account. Other categories must match the categories available in the transaction form.
+                Kinds: income, expense, transfer. Transfer category: Transfer. For transfers, supply a destination account. Other categories must match the
+                categories available in the transaction form.
               </p>
               <Form method="post" encType="multipart/form-data" className="form-stack">
                 <input type="hidden" name="intent" value="preview_import" />
@@ -759,11 +727,11 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                   Preview import
                 </button>
               </Form>
-              {actionData && "preview" in actionData && actionData.preview && (
+              {actionData && 'preview' in actionData && actionData.preview && (
                 <div className="import-preview">
                   <h2>Review your import</h2>
                   <p>
-                    {actionData.preview.length} rows · {actionData.preview.filter((r) => r.error).length} invalid ·{" "}
+                    {actionData.preview.length} rows · {actionData.preview.filter((r) => r.error).length} invalid ·{' '}
                     {actionData.preview.filter((r) => r.duplicate).length} duplicates
                   </p>
                   <div className="table-scroll preview-scroll">
@@ -780,8 +748,8 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                           <tr key={row.line}>
                             <td>{row.line}</td>
                             <td>{row.description}</td>
-                            <td className={row.error ? "negative" : row.duplicate ? "muted" : "positive"}>
-                              {row.error || (row.duplicate ? "Duplicate — will skip" : "Ready")}
+                            <td className={row.error ? 'negative' : row.duplicate ? 'muted' : 'positive'}>
+                              {row.error || (row.duplicate ? 'Duplicate — will skip' : 'Ready')}
                             </td>
                           </tr>
                         ))}
@@ -803,9 +771,8 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                     </button>
                   </Form>
                   <p className="small muted">
-                    Duplicates match date, type, amount, description (case insensitive), accounts, category, and notes.
-                    Matching rows are treated as duplicates, even if intentional. The server validates the CSV again at
-                    confirmation; the entire import is atomic.
+                    Duplicates match date, type, amount, description (case insensitive), accounts, category, and notes. Matching rows are treated as duplicates,
+                    even if intentional. The server validates the CSV again at confirmation; the entire import is atomic.
                   </p>
                 </div>
               )}
@@ -817,8 +784,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
                 </a>
               </div>
               <p className="small muted">
-                CSV exports exclude receipt files and are not a complete backup. Spreadsheet-formula prefixes are
-                escaped for safe opening.
+                CSV exports exclude receipt files and are not a complete backup. Spreadsheet-formula prefixes are escaped for safe opening.
               </p>
             </section>
           )}
@@ -830,24 +796,34 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, "
           </footer>
         </main>
       </div>
-      {settingsOpen && <UserSettings profile={d.profile} profiles={d.profiles} close={() => setSettingsOpen(false)} reset={() => { setSettingsOpen(false); setModal({ type: "reset" }); }} />}
-      {modal?.type === "categories" && (
+      {settingsOpen && (
+        <UserSettings
+          profile={d.profile}
+          profiles={d.profiles}
+          close={() => setSettingsOpen(false)}
+          reset={() => {
+            setSettingsOpen(false);
+            setModal({ type: 'reset' });
+          }}
+        />
+      )}
+      {modal?.type === 'categories' && (
         <CategoryManager
           data={d}
           close={() => setModal(null)}
-          edit={(value) => setModal({ type: "category", value })}
-          create={() => setModal({ type: "category" })}
+          edit={(value) => setModal({ type: 'category', value })}
+          create={() => setModal({ type: 'category' })}
           pending={pending}
           error={actionData?.error}
         />
       )}
-      {modal && modal.type !== "categories" && (
+      {modal && modal.type !== 'categories' && (
         <Editor
           modal={modal}
           data={d}
           close={() => setModal(null)}
           pending={pending}
-          error={actionData && "error" in actionData ? actionData.error : undefined}
+          error={actionData && 'error' in actionData ? actionData.error : undefined}
         />
       )}
     </div>
@@ -872,13 +848,12 @@ function Empty({ text }: { text: string }) {
 function Progress({ value }: { value: number }) {
   return (
     <div
-      className={`progress ${value > 100 ? "over" : ""}`}
+      className={`progress ${value > 100 ? 'over' : ''}`}
       role="progressbar"
       aria-label="Progress"
       aria-valuenow={Math.round(value)}
       aria-valuemin={0}
-      aria-valuemax={Math.max(100, Math.round(value))}
-    >
+      aria-valuemax={Math.max(100, Math.round(value))}>
       <span style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
     </div>
   );
@@ -889,7 +864,7 @@ function Budget({ budget: b }: { budget: { category: string; spent: number; amou
     <div className="budget">
       <div>
         <strong>{b.category}</strong>
-        <span className={b.spent > b.amount ? "negative" : ""}>{Math.round((b.spent / b.amount) * 100)}%</span>
+        <span className={b.spent > b.amount ? 'negative' : ''}>{Math.round((b.spent / b.amount) * 100)}%</span>
       </div>
       <Progress value={(b.spent / b.amount) * 100} />
       <p>
@@ -906,9 +881,10 @@ function DeleteForm({ intent, id, label }: { intent: string; id: string; label: 
     <Form
       method="post"
       onSubmit={(e) => {
-        if (!confirm(`${label}? This updates your records immediately.`)) e.preventDefault();
-      }}
-    >
+        if (!confirm(`${label}? This updates your records immediately.`)) {
+          e.preventDefault();
+        }
+      }}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="id" value={id} />
       <button className="text-button negative">{label}</button>
@@ -923,34 +899,32 @@ function Editor({
   error,
 }: {
   modal: Modal;
-  data: Route.ComponentProps["loaderData"];
+  data: Route.ComponentProps['loaderData'];
   close: () => void;
   pending: boolean;
   error?: string;
 }) {
   const money = useMoney();
-  const expenseCategories = d.categories.filter((c) => c.kind === "expense").map((c) => c.name);
-  const incomeCategories = d.categories.filter((c) => c.kind === "income").map((c) => c.name);
+  const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
+  const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
   const dialog = useRef<HTMLDialogElement>(null);
   const v = modal.value || {};
-  const [kind, setKind] = useState(
-    v.kind || (d.section === "income" ? "income" : d.section === "transfers" ? "transfer" : "expense"),
-  );
+  const [kind, setKind] = useState(v.kind || (d.section === 'income' ? 'income' : d.section === 'transfers' ? 'transfer' : 'expense'));
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
   const names = {
-    entry: v.id ? "Edit transaction" : "A new transaction",
-    wallet: v.id ? "Edit account" : "A new account",
-    budget: "A little plan for the month",
-    subscription: v.id ? "Edit subscription" : "A new subscription",
-    goal: v.id ? "Edit savings goal" : "Something to save for",
-    contribute: "A little closer to your goal",
-    categories: "Categories",
-    category: v.id ? "Edit category" : "New category",
-    reset: "Reset workspace",
+    entry: v.id ? 'Edit transaction' : 'A new transaction',
+    wallet: v.id ? 'Edit account' : 'A new account',
+    budget: 'A little plan for the month',
+    subscription: v.id ? 'Edit subscription' : 'A new subscription',
+    goal: v.id ? 'Edit savings goal' : 'Something to save for',
+    contribute: 'A little closer to your goal',
+    categories: 'Categories',
+    category: v.id ? 'Edit category' : 'New category',
+    reset: 'Reset workspace',
   };
-  const field = (label: string, name: string, type = "text", value: any = "", required = true) => (
+  const field = (label: string, name: string, type = 'text', value: any = '', required = true) => (
     <label>
       {label}
       <input
@@ -958,14 +932,13 @@ function Editor({
         type={type}
         defaultValue={value}
         required={required}
-        step={type === "number" ? "0.01" : undefined}
-        maxLength={name === "notes" ? 2000 : 200}
+        step={type === 'number' ? '0.01' : undefined}
+        maxLength={name === 'notes' ? 2000 : 200}
       />
     </label>
   );
-  const amount = (label = `Amount (${d.profile.currency})`, value = v.amount ? decimal(v.amount) : "") =>
-    field(label, "amount", "text", value);
-  const accounts = (name = "wallet_id", label = "Account", value = v.wallet_id || "") => (
+  const amount = (label = `Amount (${d.profile.currency})`, value = v.amount ? decimal(v.amount) : '') => field(label, 'amount', 'text', value);
+  const accounts = (name = 'wallet_id', label = 'Account', value = v.wallet_id || '') => (
     <label>
       {label}
       <select name={name} defaultValue={value} required>
@@ -977,7 +950,7 @@ function Editor({
           .map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
-              {w.archived ? " (archived)" : ""}
+              {w.archived ? ' (archived)' : ''}
             </option>
           ))}
       </select>
@@ -992,9 +965,10 @@ function Editor({
         close();
       }}
       onClick={(e) => {
-        if (e.target === dialog.current) close();
-      }}
-    >
+        if (e.target === dialog.current) {
+          close();
+        }
+      }}>
       <div className="editor-inner">
         <div className="panel-heading">
           <h2>{names[modal.type]}</h2>
@@ -1003,21 +977,26 @@ function Editor({
           </button>
         </div>
         <Form method="post" encType="multipart/form-data" className="form-stack">
-          <input type="hidden" name="intent" value={modal.type === "contribute" ? "contribute" : modal.type} />
-          {v.id && modal.type !== "contribute" && <input type="hidden" name="id" value={v.id} />}
-          {modal.type === "reset" && (
+          <input type="hidden" name="intent" value={modal.type === 'contribute' ? 'contribute' : modal.type} />
+          {v.id && modal.type !== 'contribute' && <input type="hidden" name="id" value={v.id} />}
+          {modal.type === 'reset' && (
             <>
-              <p className="info-note">This permanently clears all accounts, transactions, receipts, budgets, subscriptions, savings goals, and the cover. Categories return to defaults. This cannot be undone.</p>
-              <a className="text-button" href="/export">Export transactions first (CSV excludes receipts)</a>
-              {field("Type RESET to confirm", "confirmation")}
+              <p className="info-note">
+                This permanently clears all accounts, transactions, receipts, budgets, subscriptions, savings goals, and the cover. Categories return to
+                defaults. This cannot be undone.
+              </p>
+              <a className="text-button" href="/export">
+                Export transactions first (CSV excludes receipts)
+              </a>
+              {field('Type RESET to confirm', 'confirmation')}
             </>
           )}
-          {modal.type === "category" && (
+          {modal.type === 'category' && (
             <>
-              {field("Category name", "name", "text", v.name)}
+              {field('Category name', 'name', 'text', v.name)}
               <label>
                 Type
-                <select name="kind" defaultValue={v.kind || "expense"} disabled={!!v.id}>
+                <select name="kind" defaultValue={v.kind || 'expense'} disabled={!!v.id}>
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
                 </select>
@@ -1025,7 +1004,7 @@ function Editor({
               <p className="small muted">Renaming updates existing transactions and budgets.</p>
             </>
           )}
-          {modal.type === "entry" && (
+          {modal.type === 'entry' && (
             <>
               <label>
                 Type
@@ -1035,20 +1014,20 @@ function Editor({
                   <option value="transfer">Transfer</option>
                 </select>
               </label>
-              {field("Description", "description", "text", v.description)}
+              {field('Description', 'description', 'text', v.description)}
               <div className="form-grid">
                 {amount()}
-                {field("Date (Singapore)", "date", "date", v.date || today())}
+                {field('Date (Singapore)', 'date', 'date', v.date || today())}
               </div>
               <div className="form-grid">
-                {accounts("wallet_id", kind === "transfer" ? "From account" : "Account")}
-                {kind === "transfer" ? (
-                  accounts("destination_id", "To account", v.destination_id || "")
+                {accounts('wallet_id', kind === 'transfer' ? 'From account' : 'Account')}
+                {kind === 'transfer' ? (
+                  accounts('destination_id', 'To account', v.destination_id || '')
                 ) : (
                   <label>
                     Category
                     <select key={kind} name="category" defaultValue={v.kind === kind ? v.category : undefined} required>
-                      {(kind === "income" ? incomeCategories : expenseCategories).map((c) => (
+                      {(kind === 'income' ? incomeCategories : expenseCategories).map((c) => (
                         <option key={c}>{c}</option>
                       ))}
                     </select>
@@ -1069,33 +1048,23 @@ function Editor({
                   Remove existing receipt
                 </label>
               )}
-              {kind === "transfer" && (
-                <p className="info-note">
-                  Transfers move money between accounts. They are excluded from income and spending.
-                </p>
-              )}
+              {kind === 'transfer' && <p className="info-note">Transfers move money between accounts. They are excluded from income and spending.</p>}
             </>
           )}
-          {modal.type === "wallet" && (
+          {modal.type === 'wallet' && (
             <>
-              {field("Account name", "name", "text", v.name)}
-              {field(`Opening balance (${d.profile.currency})`, "opening", "text", v.id ? decimal(v.opening) : "0.00")}
-              <p className="small muted">
-                The opening balance is added to every recorded transaction to calculate the current balance.
-              </p>
+              {field('Account name', 'name', 'text', v.name)}
+              {field(`Opening balance (${d.profile.currency})`, 'opening', 'text', v.id ? decimal(v.opening) : '0.00')}
+              <p className="small muted">The opening balance is added to every recorded transaction to calculate the current balance.</p>
               <label className="checkbox">
                 <input type="checkbox" name="archived" defaultChecked={!!v.archived} />
                 Archive account
               </label>
-              <p className="small muted">
-                Archived accounts remain in reports and total funds. Existing transactions can still be edited.
-              </p>
-              {v.id && (
-                <p className="info-note">Current balance: {money(v.balance)}. Balance adjustment and account deletion are available below.</p>
-              )}
+              <p className="small muted">Archived accounts remain in reports and total funds. Existing transactions can still be edited.</p>
+              {v.id && <p className="info-note">Current balance: {money(v.balance)}. Balance adjustment and account deletion are available below.</p>}
             </>
           )}
-          {modal.type === "budget" && (
+          {modal.type === 'budget' && (
             <>
               <label>
                 Category
@@ -1105,14 +1074,14 @@ function Editor({
                   ))}
                 </select>
               </label>
-              {field("Month", "month", "month", d.month)}
+              {field('Month', 'month', 'month', d.month)}
               {amount(`Monthly limit (${d.profile.currency})`)}
               <p className="small muted">Saving replaces the limit for this category and month.</p>
             </>
           )}
-          {modal.type === "subscription" && (
+          {modal.type === 'subscription' && (
             <>
-              {field("Subscription name", "name", "text", v.name)}
+              {field('Subscription name', 'name', 'text', v.name)}
               <div className="form-grid">
                 {amount()}
                 {accounts()}
@@ -1120,48 +1089,44 @@ function Editor({
               <div className="form-grid">
                 <label>
                   Recurrence
-                  <select name="recurrence" defaultValue={v.recurrence || "monthly"}>
+                  <select name="recurrence" defaultValue={v.recurrence || 'monthly'}>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
                   </select>
                 </label>
-                {field("Next due", "next_due", "date", v.next_due || today())}
+                {field('Next due', 'next_due', 'date', v.next_due || today())}
               </div>
               <label>
                 Status
-                <select name="status" defaultValue={v.status || "active"}>
+                <select name="status" defaultValue={v.status || 'active'}>
                   <option value="active">Active</option>
                   <option value="paused">Paused</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </label>
               <p className="small muted">
-                Active subscriptions deduct from the selected account on each due date. Past due dates create catch-up
-                expenses when saved. Resuming a paused subscription also catches up missed dates; change Next due first
-                to skip them.
+                Active subscriptions deduct from the selected account on each due date. Past due dates create catch-up expenses when saved. Resuming a paused
+                subscription also catches up missed dates; change Next due first to skip them.
               </p>
             </>
           )}
-          {modal.type === "goal" && (
+          {modal.type === 'goal' && (
             <>
-              {field("Goal name", "name", "text", v.name)}
+              {field('Goal name', 'name', 'text', v.name)}
               {amount(`Target amount (${d.profile.currency})`)}
-              {field("Target date", "target_date", "date", v.target_date || today())}
+              {field('Target date', 'target_date', 'date', v.target_date || today())}
             </>
           )}
-          {modal.type === "contribute" && (
+          {modal.type === 'contribute' && (
             <>
               <input type="hidden" name="goal_id" value={v.id} />
               <p>
                 Allocate to <strong>{v.name}</strong>
               </p>
-              {amount(`Allocation (${d.profile.currency})`, "")}
-              {field("Date", "date", "date", today())}
-              <p className="small muted">
-                This allocation does not deduct from an account or create an expense. You can undo it from the
-                allocation history.
-              </p>
+              {amount(`Allocation (${d.profile.currency})`, '')}
+              {field('Date', 'date', 'date', today())}
+              <p className="small muted">This allocation does not deduct from an account or create an expense. You can undo it from the allocation history.</p>
             </>
           )}
           {error && (
@@ -1175,40 +1140,51 @@ function Editor({
             </button>
             <button className="primary" disabled={pending}>
               {pending
-                ? "Saving…"
-                : modal.type === "reset" ? "Reset workspace"
-                : "Save " +
-                  (modal.type === "entry" ? "transaction" : modal.type === "contribute" ? "allocation" : modal.type)}
+                ? 'Saving…'
+                : modal.type === 'reset'
+                  ? 'Reset workspace'
+                  : 'Save ' + (modal.type === 'entry' ? 'transaction' : modal.type === 'contribute' ? 'allocation' : modal.type)}
             </button>
           </div>
         </Form>
-        {modal.type === "wallet" && v.id && (
+        {modal.type === 'wallet' && v.id && (
           <>
             <Form method="post" className="form-stack">
               <h3>Adjust wallet balance</h3>
               <input type="hidden" name="intent" value="adjust_wallet" />
               <input type="hidden" name="id" value={v.id} />
-              {field(`Correct current balance (${d.profile.currency})`, "balance", "text", decimal(v.balance))}
-              <p className="small muted">Updates the opening balance by the difference. Historical balances change; transactions, income, and spending stay the same. Includes future transactions.</p>
-              <button className="secondary" disabled={pending}>Adjust balance</button>
+              {field(`Correct current balance (${d.profile.currency})`, 'balance', 'text', decimal(v.balance))}
+              <p className="small muted">
+                Updates the opening balance by the difference. Historical balances change; transactions, income, and spending stay the same. Includes future
+                transactions.
+              </p>
+              <button className="secondary" disabled={pending}>
+                Adjust balance
+              </button>
             </Form>
             <Form method="post" className="form-stack">
               <h3>Delete wallet</h3>
               <input type="hidden" name="intent" value="delete_wallet" />
               <input type="hidden" name="id" value={v.id} />
-              <label>Transaction handling
+              <label>
+                Transaction handling
                 <select name="policy" defaultValue="keep">
                   <option value="keep">Keep transactions — archive wallet</option>
                   <option value="delete">Permanently delete wallet and linked records</option>
                 </select>
               </label>
-              <p className="small muted">Archiving keeps reports and total funds. Permanent deletion removes linked transactions, receipts, subscriptions, and both sides of transfers, changing other wallet balances. This cannot be undone.</p>
-              {field("For permanent deletion, type DELETE", "confirmation", "text", "", false)}
-              <button className="secondary negative" disabled={pending}>Apply wallet removal</button>
+              <p className="small muted">
+                Archiving keeps reports and total funds. Permanent deletion removes linked transactions, receipts, subscriptions, and both sides of transfers,
+                changing other wallet balances. This cannot be undone.
+              </p>
+              {field('For permanent deletion, type DELETE', 'confirmation', 'text', '', false)}
+              <button className="secondary negative" disabled={pending}>
+                Apply wallet removal
+              </button>
             </Form>
           </>
         )}
-        {modal.type === "entry" && v.id && (
+        {modal.type === 'entry' && v.id && (
           <div className="delete-area">
             <DeleteForm intent="delete_entry" id={v.id} label="Delete transaction" />
           </div>
@@ -1225,7 +1201,7 @@ function CategoryManager({
   create,
   pending,
 }: {
-  data: Route.ComponentProps["loaderData"];
+  data: Route.ComponentProps['loaderData'];
   close: () => void;
   edit: (value: { id: string; name: string; kind: string }) => void;
   create: () => void;
@@ -1244,9 +1220,10 @@ function CategoryManager({
       aria-label="Manage categories"
       onCancel={close}
       onClick={(e) => {
-        if (e.target === dialog.current) close();
-      }}
-    >
+        if (e.target === dialog.current) {
+          close();
+        }
+      }}>
       <div className="editor-inner">
         <div className="panel-heading">
           <h2>Categories</h2>
@@ -1255,43 +1232,32 @@ function CategoryManager({
           </button>
         </div>
         <p className="small muted">
-          Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the
-          fallback and cannot be changed.
+          Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the fallback and cannot be changed.
         </p>
         <div className="category-list">
-          {(["expense", "income"] as const).map((kind) => (
+          {(['expense', 'income'] as const).map((kind) => (
             <section key={kind}>
-              <h2>{kind === "expense" ? "Expenses" : "Income"}</h2>
+              <h2>{kind === 'expense' ? 'Expenses' : 'Income'}</h2>
               {data.categories
                 .filter((c) => c.kind === kind)
                 .map((c) => (
                   <div className="category-row" key={c.id}>
                     <span>{c.name}</span>
-                    {c.name !== "Other" && (
+                    {c.name !== 'Other' && (
                       <div className="category-actions">
-                        <button
-                          className="text-button"
-                          disabled={pending || fetcher.state !== "idle"}
-                          onClick={() => edit(c)}
-                        >
+                        <button className="text-button" disabled={pending || fetcher.state !== 'idle'} onClick={() => edit(c)}>
                           Edit
                         </button>
                         <fetcher.Form
                           method="post"
                           onSubmit={(e) => {
-                            if (
-                              !confirm(
-                                'Delete "' +
-                                  c.name +
-                                  '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.',
-                              )
-                            )
+                            if (!confirm('Delete "' + c.name + '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.')) {
                               e.preventDefault();
-                          }}
-                        >
+                            }
+                          }}>
                           <input type="hidden" name="intent" value="delete_category" />
                           <input type="hidden" name="id" value={c.id} />
-                          <button className="text-button negative" disabled={fetcher.state !== "idle"}>
+                          <button className="text-button negative" disabled={fetcher.state !== 'idle'}>
                             Delete
                           </button>
                         </fetcher.Form>
@@ -1316,7 +1282,7 @@ function CategoryManager({
           <button className="secondary" onClick={close}>
             Done
           </button>
-          <button className="primary" onClick={create} disabled={fetcher.state !== "idle"}>
+          <button className="primary" onClick={create} disabled={fetcher.state !== 'idle'}>
             <Plus size={14} />
             New category
           </button>

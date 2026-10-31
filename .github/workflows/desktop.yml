@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to publish (for example v1.0.1). A new tag will point to the selected commit."
+        description: 'Release tag to publish (for example v1.0.1). A new tag will point to the selected commit.'
         required: true
         type: string
       release_description:
-        description: "Release description (Markdown supported). Leave blank to generate notes for a new release."
+        description: 'Release description (Markdown supported). Leave blank to generate notes for a new release.'
         required: false
         type: string
   push:
-    tags: ["v*"]
+    tags: ['v*']
   pull_request:
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
       - name: Build desktop installers
         run: npm run desktop:build
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Test desktop backend with Electron runtime
         run: npm run desktop:test
       - name: Smoke test packaged macOS app

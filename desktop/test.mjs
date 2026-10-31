@@ -10,5 +10,9 @@ const result = spawnSync(electron, ['--test', 'tests/desktop.test.mjs'], {
   env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: 'production', DESKTOP_TEST_DIRECTORY: directory },
 });
 rmSync(directory, { recursive: true, force: true });
-if (result.error) console.error(result.error);
+
+if (result.error) {
+  console.error(result.error);
+}
+
 process.exit(result.status ?? 1);

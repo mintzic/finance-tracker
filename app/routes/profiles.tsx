@@ -1,8 +1,8 @@
-import { Form, Link, useNavigation } from "react-router";
-import type { Route } from "./+types/profiles";
-import { currentProfile, listProfiles, profileAction } from "../lib/profiles.server";
-import { sameOrigin } from "../lib/workspace.server";
-import { boundedForm } from "../lib/receipts.server";
+import { Form, Link, useNavigation } from 'react-router';
+import type { Route } from './+types/profiles';
+import { currentProfile, listProfiles, profileAction } from '../lib/profiles.server';
+import { sameOrigin } from '../lib/workspace.server';
+import { boundedForm } from '../lib/receipts.server';
 
 export function loader({ request }: Route.LoaderArgs) {
   return { profile: currentProfile(request) || null, profiles: listProfiles() };
@@ -12,16 +12,16 @@ export async function action({ request }: Route.ActionArgs) {
   try {
     return profileAction(request, await boundedForm(request));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Unable to update profile." };
+    return { error: error instanceof Error ? error.message : 'Unable to update profile.' };
   }
 }
 export default function Profiles({ loaderData: { profile, profiles }, actionData }: Route.ComponentProps) {
-  const pending = useNavigation().state !== "idle";
+  const pending = useNavigation().state !== 'idle';
   return (
     <main className="profile-page">
-      <h1>{profile ? "User settings" : "Welcome to Folio"}</h1>
+      <h1>{profile ? 'User settings' : 'Welcome to Folio'}</h1>
       <p className="muted">Local profiles have separate financial workspaces. No password is required.</p>
-      {actionData && "error" in actionData && (
+      {actionData?.error && (
         <p role="alert" className="error">
           {actionData.error}
         </p>
@@ -45,15 +45,12 @@ export default function Profiles({ loaderData: { profile, profiles }, actionData
           <label>
             Currency
             <select name="currency" defaultValue={profile.currency}>
-              {["SGD", "USD", "EUR", "GBP", "MYR", "CNY", "AUD"].map((currency) => (
+              {['SGD', 'USD', 'EUR', 'GBP', 'MYR', 'CNY', 'AUD'].map((currency) => (
                 <option key={currency}>{currency}</option>
               ))}
             </select>
           </label>
-          <p className="small muted">
-            Currency applies to this whole workspace. Changing it relabels recorded amounts; it does not convert
-            exchange rates.
-          </p>
+          <p className="small muted">Currency applies to this whole workspace. Changing it relabels recorded amounts; it does not convert exchange rates.</p>
           <button className="primary" disabled={pending}>
             Save settings
           </button>
@@ -79,17 +76,13 @@ export default function Profiles({ loaderData: { profile, profiles }, actionData
         </Form>
       )}
       <Form method="post" className="panel form-stack">
-        <h2>{profiles.length ? "Add user" : "What’s your username?"}</h2>
+        <h2>{profiles.length ? 'Add user' : 'What’s your username?'}</h2>
         <input type="hidden" name="intent" value="create_profile" />
         <label>
           Username
           <input name="username" required maxLength={80} autoComplete="nickname" />
         </label>
-        <p className="small muted">
-          {profiles.length
-            ? "Creates an empty workspace for this user."
-            : "Your existing workspace will belong to this username."}
-        </p>
+        <p className="small muted">{profiles.length ? 'Creates an empty workspace for this user.' : 'Your existing workspace will belong to this username.'}</p>
         <button className="primary" disabled={pending}>
           Create profile
         </button>

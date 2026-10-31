@@ -1,35 +1,27 @@
-import { useMemo, useContext } from "react";
-import { useTable, tableFeatures, flexRender, type ColumnDef } from "@tanstack/react-table";
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from "lucide-react";
-import { Preferences, useMoney } from "../lib/preferences";
-import type { Entry } from "../lib/ledger.server";
+import { useMemo, useContext } from 'react';
+import { useTable, tableFeatures, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from 'lucide-react';
+import { Preferences, useMoney } from '../lib/preferences';
+import type { Entry } from '../lib/ledger.server';
 
 // Filtering, sorting, and pagination are handled by the server loader.
 const features = tableFeatures({});
 type TransactionColumn = ColumnDef<typeof features, Entry>;
 
-export function TransactionTable({
-  rows,
-  onEdit,
-  compact = false,
-}: {
-  rows: Entry[];
-  onEdit: (entry: Entry) => void;
-  compact?: boolean;
-}) {
+export function TransactionTable({ rows, onEdit, compact = false }: { rows: Entry[]; onEdit: (entry: Entry) => void; compact?: boolean }) {
   const money = useMoney();
   const { language } = useContext(Preferences);
   const columns = useMemo<TransactionColumn[]>(
     () => [
       {
-        accessorKey: "description",
-        header: "Transaction",
+        accessorKey: 'description',
+        header: 'Transaction',
         cell: ({ row }) => (
           <div className="transaction-name">
             <span className={`transaction-icon ${row.original.kind}`}>
-              {row.original.kind === "expense" ? (
+              {row.original.kind === 'expense' ? (
                 <ArrowUpRight size={15} />
-              ) : row.original.kind === "income" ? (
+              ) : row.original.kind === 'income' ? (
                 <ArrowDownLeft size={15} />
               ) : (
                 <ArrowLeftRight size={15} />
@@ -43,15 +35,15 @@ export function TransactionTable({
         ),
       },
       {
-        accessorKey: "category",
-        header: "Category",
+        accessorKey: 'category',
+        header: 'Category',
         cell: ({ getValue }) => <span className="tag">{String(getValue())}</span>,
       },
       ...(!compact
         ? [
             {
-              accessorKey: "account_name",
-              header: "Account",
+              accessorKey: 'account_name',
+              header: 'Account',
               cell: ({ row }) => (
                 <span>
                   {row.original.account_name}
@@ -62,27 +54,25 @@ export function TransactionTable({
           ]
         : []),
       {
-        accessorKey: "date",
-        header: "Date",
+        accessorKey: 'date',
+        header: 'Date',
         cell: ({ getValue }) => (
-          <span className="muted nowrap">
-            {new Date(String(getValue()) + "T00:00:00").toLocaleDateString(language, { day: "numeric", month: "short" })}
-          </span>
+          <span className="muted nowrap">{new Date(String(getValue()) + 'T00:00:00').toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
         ),
       },
       {
-        accessorKey: "amount",
-        header: "Amount",
+        accessorKey: 'amount',
+        header: 'Amount',
         cell: ({ row }) => (
-          <span className={`amount ${row.original.kind === "income" ? "positive" : ""}`}>
-            {row.original.kind === "expense" ? "−" : row.original.kind === "income" ? "+" : ""}
+          <span className={`amount ${row.original.kind === 'income' ? 'positive' : ''}`}>
+            {row.original.kind === 'expense' ? '−' : row.original.kind === 'income' ? '+' : ''}
             {money(row.original.amount)}
           </span>
         ),
       },
       {
-        id: "edit",
-        header: "",
+        id: 'edit',
+        header: '',
         cell: ({ row }) => (
           <div className="row-actions">
             {row.original.receipt_id && (
@@ -90,19 +80,14 @@ export function TransactionTable({
                 <Paperclip size={14} />
               </a>
             )}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={`Edit ${row.original.description}`}
-              onClick={() => onEdit(row.original)}
-            >
+            <button type="button" className="icon-button" aria-label={`Edit ${row.original.description}`} onClick={() => onEdit(row.original)}>
               <Pencil size={14} />
             </button>
           </div>
         ),
       },
     ],
-    [compact, onEdit, language, money],
+    [compact, onEdit, language, money]
   );
   const table = useTable({
     features,
@@ -117,9 +102,7 @@ export function TransactionTable({
           {table.getHeaderGroups().map((group) => (
             <tr key={group.id}>
               {group.headers.map((header) => (
-                <th key={header.id}>
-                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
+                <th key={header.id}>{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}</th>
               ))}
             </tr>
           ))}

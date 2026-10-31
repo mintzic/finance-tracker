@@ -30,7 +30,9 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
     assert.equal((await fetch(local.origin, { headers: { Cookie: 'desktop_session=wrong' } })).status, 403);
     assert.equal((await fetch(local.origin, { headers: { ...headers, Origin: 'https://example.com' } })).status, 403);
     const signup = await fetch(`${local.origin}/profiles`, {
-      method: 'POST', redirect: 'manual', headers: { ...headers, Origin: local.origin },
+      method: 'POST',
+      redirect: 'manual',
+      headers: { ...headers, Origin: local.origin },
       body: new URLSearchParams({ intent: 'create_profile', username: 'First user' }),
     });
     assert.equal(signup.status, 302);
@@ -39,7 +41,8 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
     assert.equal(home.status, 200);
     assert.match(await home.text(), /Preserved/);
     const saved = await fetch(`${local.origin}/?index`, {
-      method: 'POST', headers: { ...headers, Origin: local.origin },
+      method: 'POST',
+      headers: { ...headers, Origin: local.origin },
       body: new URLSearchParams({ intent: 'wallet', name: 'Desktop savings', opening: '125.50' }),
     });
     assert.equal(saved.status, 200);
@@ -49,14 +52,15 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
     } finally {
       persisted.close();
     }
-    const css = (await readdir('build/client/assets')).find(name => name.endsWith('.css'));
+    const css = (await readdir('build/client/assets')).find((name) => name.endsWith('.css'));
     const asset = await fetch(`${local.origin}/assets/${css}`, { headers });
     assert.equal(asset.status, 200);
     assert.equal(asset.headers.get('content-type'), 'text/css');
     assert.equal((await fetch(`${local.origin}/export`, { headers })).status, 200);
     const post = async (values) => {
       const response = await fetch(`${local.origin}/?index`, {
-        method: 'POST', headers: { ...headers, Origin: local.origin },
+        method: 'POST',
+        headers: { ...headers, Origin: local.origin },
         body: new URLSearchParams(values),
       });
       assert.equal(response.status, 200);
@@ -66,7 +70,11 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
     inspect.pragma('foreign_keys=ON');
     try {
       const other = inspect.prepare("SELECT id FROM wallets WHERE name='Desktop savings'").get().id;
-      inspect.prepare("INSERT INTO entries(id,kind,date,description,amount,wallet_id,destination_id,category) VALUES ('transfer','transfer','2026-10-01','Move',50,'desktop-test',?,'Transfer')").run(other);
+      inspect
+        .prepare(
+          "INSERT INTO entries(id,kind,date,description,amount,wallet_id,destination_id,category) VALUES ('transfer','transfer','2026-10-01','Move',50,'desktop-test',?,'Transfer')"
+        )
+        .run(other);
       await post({ intent: 'adjust_wallet', id: 'desktop-test', balance: '10.00' });
       assert.equal(inspect.prepare("SELECT opening FROM wallets WHERE id='desktop-test'").get().opening, 1050);
       assert.equal(inspect.prepare('SELECT COUNT(*) n FROM entries').get().n, 1);
@@ -80,7 +88,9 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
       await post({ intent: 'reset', confirmation: 'wrong' });
       assert.equal(inspect.prepare('SELECT COUNT(*) n FROM wallets').get().n, 1);
       const second = await fetch(`${local.origin}/profiles`, {
-        method: 'POST', redirect: 'manual', headers: { ...headers, Origin: local.origin },
+        method: 'POST',
+        redirect: 'manual',
+        headers: { ...headers, Origin: local.origin },
         body: new URLSearchParams({ intent: 'create_profile', username: 'Second user' }),
       });
       assert.equal(second.status, 302);
@@ -91,13 +101,16 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
       assert.match(secondText, /Second user/);
       assert.doesNotMatch(secondText, /Desktop savings/);
       const crossWrite = await fetch(`${local.origin}/?index`, {
-        method: 'POST', headers: { ...secondHeaders, Origin: local.origin },
+        method: 'POST',
+        headers: { ...secondHeaders, Origin: local.origin },
         body: new URLSearchParams({ intent: 'adjust_wallet', id: other, balance: '0' }),
       });
       assert.match(await crossWrite.text(), /Account not found/);
       assert.equal(inspect.prepare('SELECT COUNT(*) n FROM wallets').get().n, 1);
       const settings = await fetch(`${local.origin}/profiles`, {
-        method: 'POST', redirect: 'manual', headers: { ...secondHeaders, Origin: local.origin },
+        method: 'POST',
+        redirect: 'manual',
+        headers: { ...secondHeaders, Origin: local.origin },
         body: new URLSearchParams({ intent: 'save_profile', username: 'Renamed user', language: 'zh-SG', currency: 'USD' }),
       });
       assert.equal(settings.status, 302);
@@ -107,15 +120,18 @@ test('desktop migrates persistent storage and restricts the local backend', asyn
       assert.match(translated, /总览/);
       assert.equal((await fetch(`${local.origin}/export`, { headers: secondHeaders })).status, 200);
       await post({ intent: 'reset', confirmation: 'RESET' });
-      for (const table of ['wallets', 'entries', 'subscriptions', 'budgets', 'goals', 'contributions', 'receipts', 'subscription_charges', 'workspace_cover'])
+      for (const table of ['wallets', 'entries', 'subscriptions', 'budgets', 'goals', 'contributions', 'receipts', 'subscription_charges', 'workspace_cover']) {
         assert.equal(inspect.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
+      }
       assert.equal(inspect.prepare('SELECT COUNT(*) n FROM categories').get().n, 14);
       assert.equal(inspect.prepare('SELECT COUNT(*) n FROM local_profiles').get().n, 2);
-    } finally { inspect.close(); }
+    } finally {
+      inspect.close();
+    }
   } finally {
     if (server) {
       server.closeAllConnections();
-      await new Promise(accept => server.close(accept));
+      await new Promise((accept) => server.close(accept));
     }
     // The parent test runner removes the database after SQLite exits on Windows.
   }

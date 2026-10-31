@@ -1,17 +1,14 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Build desktop installers",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"desktop:build"
-			],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "build"
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build desktop installers",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "desktop:build"],
+      "isBackground": false,
+      "problemMatcher": [],
+      "group": "build"
+    }
+  ]
 }

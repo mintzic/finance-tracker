@@ -21,7 +21,7 @@ export default function Profiles({ loaderData: { profile, profiles }, actionData
     <main className="profile-page">
       <h1>{profile ? 'User settings' : 'Welcome to Folio'}</h1>
       <p className="muted">Local profiles have separate financial workspaces. No password is required.</p>
-      {actionData?.error && (
+      {actionData && 'error' in actionData && actionData.error && (
         <p role="alert" className="error">
           {actionData.error}
         </p>

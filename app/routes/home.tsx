@@ -105,6 +105,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
   const t = (text: string) => translate(d.profile.language, text);
   const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
+  const isIncome = d.section === 'income';
   const [params] = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<Modal | null>(null),
@@ -403,7 +404,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                       View all <ArrowRight size={13} />
                     </Link>
                   </div>
-                  <TransactionTable rows={rows as Entry[]} onEdit={edit} compact />
+                  <TransactionTable rows={rows as Entry[]} onEdit={edit} transfers={section === 'transfers'} />
                 </section>
               ))}
             </>
@@ -437,6 +438,28 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                 Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary; untracked assets and liabilities are excluded.
               </p>
             </>
+          )}
+          {['income', 'expenses'].includes(d.section) && (
+            <div className="two-grid transaction-insights">
+              <section className="panel">
+                <div className="panel-heading">
+                  <h2>{d.section === 'income' ? 'Where it came from' : 'Where it went'}</h2>
+                  <span className="small muted">{monthName}</span>
+                </div>
+                <SpendingChart
+                  data={d.section === 'income' ? d.incomeByCategory : d.spending}
+                  total={d.section === 'income' ? d.sum.income : d.sum.expense}
+                  income={d.section === 'income'}
+                />
+              </section>
+              <section className="panel">
+                <div className="panel-heading">
+                  <h2>{isIncome ? 'Income' : 'Expenses'} over time</h2>
+                  <span className="small muted">Six months to {monthName}</span>
+                </div>
+                <TrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
+              </section>
+            </div>
           )}
           {['income', 'expenses', 'transfers'].includes(d.section) && (
             <section className="panel table-panel">
@@ -481,7 +504,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                 </select>
                 <button className="secondary">Apply</button>
               </Form>
-              <TransactionTable rows={d.transactions} onEdit={edit} />
+              <TransactionTable rows={d.transactions} onEdit={edit} transfers={d.section === 'transfers'} />
               <div className="pagination">
                 <span>{d.count ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}` : '0 transactions'}</span>
                 <div>
@@ -506,7 +529,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
             <>
               <div className="section-heading">
                 <h2>{monthName} budgets</h2>
-                <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
+                <button type="button" className="secondary" onClick={() => setModal({ type: 'budget' })}>
                   <Plus size={15} />
                   Set budget
                 </button>
@@ -519,11 +542,11 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                       {b.spent > b.amount ? 'Over budget by ' : 'Remaining '}
                       {money(Math.abs(b.amount - b.spent))}
                     </p>
-                    <div className="flex-actions">
-                      <button className="text-button" onClick={() => setModal({ type: 'budget', value: b })}>
+                    <div className="budget-actions">
+                      <button type="button" className="secondary" onClick={() => setModal({ type: 'budget', value: b })}>
                         Edit limit
                       </button>
-                      <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" />
+                      <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" buttonClassName="secondary budget-remove" />
                     </div>
                   </section>
                 ))}
@@ -858,12 +881,15 @@ function Progress({ value }: { value: number }) {
     </div>
   );
 }
-function Budget({ budget: b }: { budget: { category: string; spent: number; amount: number } }) {
+function Budget({ budget: b }: { budget: { category: string; spent: number; amount: number; all_months?: number } }) {
   const money = useMoney();
   return (
     <div className="budget">
       <div>
-        <strong>{b.category}</strong>
+        <strong>
+          {b.category}
+          {b.all_months ? <small className="muted"> · All months</small> : null}
+        </strong>
         <span className={b.spent > b.amount ? 'negative' : ''}>{Math.round((b.spent / b.amount) * 100)}%</span>
       </div>
       <Progress value={(b.spent / b.amount) * 100} />
@@ -876,7 +902,7 @@ function Budget({ budget: b }: { budget: { category: string; spent: number; amou
     </div>
   );
 }
-function DeleteForm({ intent, id, label }: { intent: string; id: string; label: string }) {
+function DeleteForm({ intent, id, label, buttonClassName = 'text-button negative' }: { intent: string; id: string; label: string; buttonClassName?: string }) {
   return (
     <Form
       method="post"
@@ -887,7 +913,7 @@ function DeleteForm({ intent, id, label }: { intent: string; id: string; label: 
       }}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="id" value={id} />
-      <button className="text-button negative">{label}</button>
+      <button className={buttonClassName}>{label}</button>
     </Form>
   );
 }
@@ -1074,9 +1100,16 @@ function Editor({
                   ))}
                 </select>
               </label>
-              {field('Month', 'month', 'month', d.month)}
+              {field('Month', 'month', 'month', v.all_months ? d.month : v.month || d.month)}
               {amount(`Monthly limit (${d.profile.currency})`)}
-              <p className="small muted">Saving replaces the limit for this category and month.</p>
+              <label className="checkbox">
+                <input type="checkbox" name="all_months" defaultChecked={Boolean(v.all_months)} />
+                Apply to all months
+              </label>
+              <p className="small muted">
+                Checked: replaces recurring limits from the selected month onward, keeping month-specific exceptions. Unchecked: overrides only the selected
+                month.
+              </p>
             </>
           )}
           {modal.type === 'subscription' && (
@@ -1162,6 +1195,7 @@ function Editor({
                 Adjust balance
               </button>
             </Form>
+            <br></br>
             <Form method="post" className="form-stack">
               <h3>Delete wallet</h3>
               <input type="hidden" name="intent" value="delete_wallet" />

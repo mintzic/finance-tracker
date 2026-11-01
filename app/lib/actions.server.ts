@@ -8,6 +8,7 @@ import { stageReceipt, receiptFor, removeReceiptFile } from './receipts.server';
 
 import { categoryNames, saveCategory } from './categories.server';
 import { updateCover } from './cover.server';
+import { saveBudget } from './budgets.server';
 
 export type ActionResult = {
   error?: string;
@@ -193,9 +194,8 @@ export async function mutate(form: FormData): Promise<ActionResult> {
       throw new Error('Choose an expense category.');
     }
 
-    sqlite
-      .prepare('INSERT INTO budgets(id,month,category,amount) VALUES (?,?,?,?) ON CONFLICT(month,category) DO UPDATE SET amount=excluded.amount')
-      .run(randomUUID(), month, category, positive(text(form, 'amount')));
+    const amount = positive(text(form, 'amount'));
+    saveBudget(sqlite, { id, month, category, amount, allMonths: form.get('all_months') === 'on' });
   } else if (intent === 'delete_budget') {
     sqlite.prepare('DELETE FROM budgets WHERE id=?').run(id);
   } else if (intent === 'subscription') {
@@ -326,7 +326,7 @@ export async function mutate(form: FormData): Promise<ActionResult> {
         ['Transport', 15000],
         ['Shopping', 20000],
       ]) {
-        sqlite.prepare('INSERT INTO budgets VALUES (?,?,?,?)').run(randomUUID(), month, category, amount);
+        sqlite.prepare('INSERT INTO budgets(id,month,category,amount) VALUES (?,?,?,?)').run(randomUUID(), month, category, amount);
       }
       sqlite
         .prepare('INSERT INTO subscriptions(id,name,amount,wallet_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?)')

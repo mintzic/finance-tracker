@@ -26,6 +26,7 @@ export const budgets = sqliteTable('budgets', {
   month: text('month').notNull(),
   category: text('category').notNull(),
   amount: integer('amount').notNull(),
+  allMonths: integer('all_months').notNull().default(0),
 });
 
 export const subscriptions = sqliteTable('subscriptions', {

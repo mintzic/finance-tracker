@@ -952,12 +952,47 @@ tbody tr:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
+.transaction-insights {
+  margin-bottom: 24px;
+}
 .budget-card {
   padding: 12px 24px 23px;
 }
 .budget-card > p {
   font-size: 11px;
   margin: 18px 0;
+}
+.budget-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #323036;
+}
+.budget-actions form {
+  margin: 0;
+}
+.budget-actions .secondary {
+  min-height: 36px;
+  padding: 9px 15px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.budget-actions .secondary:hover {
+  border-color: #817194;
+}
+.budget-actions .budget-remove {
+  color: #f2a6b4;
+  border-color: #68434f;
+  background: #2b222c;
+}
+.budget-actions .budget-remove:hover {
+  border-color: #bd788a;
+  background: #3b2833;
+}
+.budget-actions .secondary:focus-visible {
+  outline: 2px solid #b99aff;
+  outline-offset: 3px;
 }
 .standalone {
   grid-template-columns: repeat(3, minmax(0, 1fr));

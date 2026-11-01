@@ -403,7 +403,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                       View all <ArrowRight size={13} />
                     </Link>
                   </div>
-                  <TransactionTable rows={rows as Entry[]} onEdit={edit} compact />
+                  <TransactionTable rows={rows as Entry[]} onEdit={edit} transfers={section === 'transfers'} />
                 </section>
               ))}
             </>
@@ -481,7 +481,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                 </select>
                 <button className="secondary">Apply</button>
               </Form>
-              <TransactionTable rows={d.transactions} onEdit={edit} />
+              <TransactionTable rows={d.transactions} onEdit={edit} transfers={d.section === 'transfers'} />
               <div className="pagination">
                 <span>{d.count ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}` : '0 transactions'}</span>
                 <div>

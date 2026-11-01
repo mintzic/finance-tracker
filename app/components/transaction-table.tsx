@@ -8,7 +8,7 @@ import type { Entry } from '../lib/ledger.server';
 const features = tableFeatures({});
 type TransactionColumn = ColumnDef<typeof features, Entry>;
 
-export function TransactionTable({ rows, onEdit, compact = false }: { rows: Entry[]; onEdit: (entry: Entry) => void; compact?: boolean }) {
+export function TransactionTable({ rows, onEdit, transfers = false }: { rows: Entry[]; onEdit: (entry: Entry) => void; transfers?: boolean }) {
   const money = useMoney();
   const { language } = useContext(Preferences);
   const columns = useMemo<TransactionColumn[]>(
@@ -29,30 +29,32 @@ export function TransactionTable({ rows, onEdit, compact = false }: { rows: Entr
             </span>
             <div>
               <strong>{row.original.description}</strong>
-              {compact && <small>{row.original.account_name}</small>}
+              {/* <small>{row.original.account_name}</small> */}
             </div>
           </div>
         ),
       },
       {
-        accessorKey: 'category',
-        header: 'Category',
-        cell: ({ getValue }) => <span className="tag">{String(getValue())}</span>,
+        accessorKey: 'account_name',
+        header: transfers ? 'From Account' : 'Account',
+        cell: ({ row }) => (
+          <span>
+            {row.original.account_name}
+            {!transfers && row.original.destination_name && ` → ${row.original.destination_name}`}
+          </span>
+        ),
       },
-      ...(!compact
-        ? [
-            {
-              accessorKey: 'account_name',
-              header: 'Account',
-              cell: ({ row }) => (
-                <span>
-                  {row.original.account_name}
-                  {row.original.destination_name && ` → ${row.original.destination_name}`}
-                </span>
-              ),
-            } satisfies TransactionColumn,
-          ]
-        : []),
+      transfers
+        ? {
+            accessorKey: 'destination_name',
+            header: 'To Account',
+            cell: ({ getValue }) => <span>{String(getValue() ?? '—')}</span>,
+          }
+        : {
+            accessorKey: 'category',
+            header: 'Category',
+            cell: ({ getValue }) => <span className="tag">{String(getValue())}</span>,
+          },
       {
         accessorKey: 'date',
         header: 'Date',
@@ -87,7 +89,7 @@ export function TransactionTable({ rows, onEdit, compact = false }: { rows: Entr
         ),
       },
     ],
-    [compact, onEdit, language, money]
+    [onEdit, language, money, transfers]
   );
   const table = useTable({
     features,

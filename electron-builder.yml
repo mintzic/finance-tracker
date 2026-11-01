@@ -1,5 +1,5 @@
-appId: com.financetracker.desktop
-productName: Finance Tracker
+appId: com.mintzic.folio
+productName: Folio Finance Tracker
 directories:
   output: release
   buildResources: desktop/resources
@@ -28,7 +28,7 @@ nsis:
 linux:
   icon: desktop/resources/icon.png
   category: Finance
-  maintainer: Finance Tracker contributors
+  maintainer: mintzic
   target:
     - AppImage
     - deb

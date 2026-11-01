@@ -151,6 +151,16 @@ Builds use the machine's architecture by default. On macOS, use `npm run desktop
 
 Use `npm run desktop:pack` to create an unpacked application for inspection.
 
+### macOS releases from GitHub Actions
+
+macOS installers use **ad-hoc signing** (`mac.identity: "-"`) with hardened runtime enabled and notarization disabled. No Apple Developer membership, certificate, or repository secrets are required. The workflow verifies the ad-hoc signature and smoke tests the packaged application before uploading installers.
+
+The app and its helpers use explicit Electron entitlements, including `disable-library-validation`, so hardened runtime can load Electron frameworks and the native SQLite module without an Apple Team ID.
+
+Ad-hoc signing does not establish an Apple-verified developer identity or pass normal Gatekeeper distribution checks. After installing and attempting to open the app, users may need to go to **System Settings → Privacy & Security → Open Anyway** to approve the app. See [Apple's instructions for opening downloaded apps](https://support.apple.com/en-gb/102445). A “damaged” warning can also indicate a broken signature; overriding Gatekeeper does not repair that.
+
+Run the Desktop builds workflow from the updated commit with a new release tag, then download the new installer. Existing release downloads remain unchanged until rebuilt. For distribution without these manual approvals, switch to Developer ID Application signing and Apple notarization.
+
 To change the sleeping cat icon, replace [the app icon](desktop/resources/icon.png) with a square 1024 × 1024 PNG and rebuild.
 
 ## Development checks

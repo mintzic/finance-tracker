@@ -45,7 +45,7 @@ jobs:
         run: npm ci
       - name: Check types
         run: npm run typecheck
-      - name: Build desktop installers
+      - name: Build desktop installers (ad-hoc signed on macOS)
         run: npm run desktop:build
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -56,17 +56,34 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          executable=(release/mac*/Finance\ Tracker.app/Contents/MacOS/Finance\ Tracker)
+          executable=(release/mac*/Folio\ Finance\ Tracker.app/Contents/MacOS/Folio\ Finance\ Tracker)
           if [ "${#executable[@]}" -ne 1 ]; then
             echo "Expected one packaged macOS executable; found ${#executable[@]}"
             exit 1
           fi
           "${executable[0]}" --smoke-test
+      - name: Verify macOS ad-hoc signature
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(release/mac*/*.app)
+          if [[ "${#apps[@]}" -ne 1 ]]; then
+            echo "Expected one packaged macOS app; found ${#apps[@]}"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+          signature=$(codesign --display --verbose=2 "${apps[0]}" 2>&1)
+          if [[ "$signature" != *"Signature=adhoc"* ]]; then
+            echo "Expected an ad-hoc signed macOS app."
+            exit 1
+          fi
       - name: Smoke test packaged Windows app
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $process = Start-Process -FilePath 'release/win-unpacked/Finance Tracker.exe' -ArgumentList '--smoke-test' -Wait -PassThru
+          $process = Start-Process -FilePath 'release/win-unpacked/Folio Finance Tracker.exe' -ArgumentList '--smoke-test' -Wait -PassThru
           exit $process.ExitCode
       - name: Smoke test packaged Linux app
         if: runner.os == 'Linux'

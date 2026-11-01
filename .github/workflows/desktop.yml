@@ -11,9 +11,6 @@ on:
         description: 'Release description (Markdown supported). Leave blank to generate notes for a new release.'
         required: false
         type: string
-  push:
-    tags: ['v*']
-  pull_request:
 
 permissions:
   contents: read

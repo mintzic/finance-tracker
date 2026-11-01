@@ -529,7 +529,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
             <>
               <div className="section-heading">
                 <h2>{monthName} budgets</h2>
-                <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
+                <button type="button" className="secondary" onClick={() => setModal({ type: 'budget' })}>
                   <Plus size={15} />
                   Set budget
                 </button>
@@ -542,11 +542,11 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                       {b.spent > b.amount ? 'Over budget by ' : 'Remaining '}
                       {money(Math.abs(b.amount - b.spent))}
                     </p>
-                    <div className="flex-actions">
-                      <button className="text-button" onClick={() => setModal({ type: 'budget', value: b })}>
+                    <div className="budget-actions">
+                      <button type="button" className="secondary" onClick={() => setModal({ type: 'budget', value: b })}>
                         Edit limit
                       </button>
-                      <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" />
+                      <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" buttonClassName="secondary budget-remove" />
                     </div>
                   </section>
                 ))}
@@ -902,7 +902,7 @@ function Budget({ budget: b }: { budget: { category: string; spent: number; amou
     </div>
   );
 }
-function DeleteForm({ intent, id, label }: { intent: string; id: string; label: string }) {
+function DeleteForm({ intent, id, label, buttonClassName = 'text-button negative' }: { intent: string; id: string; label: string; buttonClassName?: string }) {
   return (
     <Form
       method="post"
@@ -913,7 +913,7 @@ function DeleteForm({ intent, id, label }: { intent: string; id: string; label: 
       }}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="id" value={id} />
-      <button className="text-button negative">{label}</button>
+      <button className={buttonClassName}>{label}</button>
     </Form>
   );
 }

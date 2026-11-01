@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 import { Cat } from 'lucide-react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useMoney } from '../lib/preferences';
 
 const palette = ['#b99aff', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
@@ -8,9 +9,27 @@ const tooltipStyle = { background: '#211d30', border: '1px solid #444', borderRa
 export function SpendingChart({ data, total, income = false }: { data: { category: string; amount: number }[]; total: number; income?: boolean }) {
   const hasSpending = data.some((row) => row.amount > 0);
   const money = useMoney();
+  const [tooltipPortal, setTooltipPortal] = useState<HTMLElement | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<CSSProperties>({ left: 0, top: 0 });
+  useEffect(() => setTooltipPortal(document.body), []);
+  const positionTooltip = (element: HTMLElement, clientX?: number, clientY?: number) => {
+    const bounds = element.getBoundingClientRect();
+    const x = clientX ?? bounds.right;
+    const y = clientY ?? bounds.top;
+    const onRight = x >= bounds.left + bounds.width / 2;
+    setTooltipPosition({
+      left: onRight ? x + 14 : undefined,
+      right: onRight ? undefined : window.innerWidth - x + 14,
+      top: Math.max(8, Math.min(y + 14, window.innerHeight - 70)),
+      maxWidth: Math.max(0, (onRight ? window.innerWidth - x : x) - 22),
+    });
+  };
   return (
     <div className="spending-content">
-      <div className="donut">
+      <div
+        className="donut"
+        onPointerMove={(event) => positionTooltip(event.currentTarget, event.clientX, event.clientY)}
+        onFocusCapture={(event) => positionTooltip(event.currentTarget)}>
         {hasSpending ? (
           <ResponsiveContainer width="100%" height={215} minWidth={0} initialDimension={{ width: 240, height: 215 }}>
             <PieChart>
@@ -27,7 +46,12 @@ export function SpendingChart({ data, total, income = false }: { data: { categor
                   <Cell key={row.category} fill={palette[i % palette.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
+              <Tooltip
+                portal={tooltipPortal}
+                formatter={(value) => money(Number(value))}
+                contentStyle={{ ...tooltipStyle, color: '#f5f3f8', overflowWrap: 'anywhere' }}
+                wrapperStyle={{ position: 'fixed', ...tooltipPosition, zIndex: 1000, pointerEvents: 'none' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         ) : (

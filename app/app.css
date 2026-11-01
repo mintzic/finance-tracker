@@ -952,6 +952,9 @@ tbody tr:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
+.transaction-insights {
+  margin-bottom: 24px;
+}
 .budget-card {
   padding: 12px 24px 23px;
 }

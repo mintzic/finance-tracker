@@ -24,6 +24,9 @@ export function dashboard(url: URL) {
   const spending = sqlite
     .prepare(`SELECT category, SUM(amount) amount FROM entries WHERE kind='expense' AND date>=? AND date<? GROUP BY category ORDER BY amount DESC`)
     .all(start, end) as { category: string; amount: number }[];
+  const incomeByCategory = sqlite
+    .prepare(`SELECT category, SUM(amount) amount FROM entries WHERE kind='income' AND date>=? AND date<? GROUP BY category ORDER BY amount DESC`)
+    .all(start, end) as { category: string; amount: number }[];
   const budgets = sqlite
     .prepare(
       `SELECT b.*,COALESCE((SELECT SUM(e.amount) FROM entries e WHERE e.category=b.category AND e.kind='expense' AND e.date>=? AND e.date<?),0) spent FROM budgets b WHERE b.month=? ORDER BY b.category`
@@ -106,6 +109,7 @@ export function dashboard(url: URL) {
     cover: getCover(sqlite) || null,
     sum,
     spending,
+    incomeByCategory,
     budgets,
     wallets,
     monthBalances,

@@ -5,7 +5,7 @@ import { useMoney } from '../lib/preferences';
 const palette = ['#b99aff', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
 const tooltipStyle = { background: '#211d30', border: '1px solid #444', borderRadius: 8 };
 
-export function SpendingChart({ data, total }: { data: { category: string; amount: number }[]; total: number }) {
+export function SpendingChart({ data, total, income = false }: { data: { category: string; amount: number }[]; total: number; income?: boolean }) {
   const hasSpending = data.some((row) => row.amount > 0);
   const money = useMoney();
   return (
@@ -22,7 +22,7 @@ export function SpendingChart({ data, total }: { data: { category: string; amoun
                 outerRadius={94}
                 paddingAngle={data.length > 1 ? 4 : 0}
                 stroke="none"
-                isAnimationActive={false}>
+                isAnimationActive={true}>
                 {data.map((row, i) => (
                   <Cell key={row.category} fill={palette[i % palette.length]} />
                 ))}
@@ -36,7 +36,7 @@ export function SpendingChart({ data, total }: { data: { category: string; amoun
         <div className="donut-label">
           <small>THIS MONTH</small>
           <strong>{money(total)}</strong>
-          <span>total spending</span>
+          <span>{income ? 'total income' : 'total spending'}</span>
         </div>
       </div>
       <div className="legend">
@@ -51,28 +51,48 @@ export function SpendingChart({ data, total }: { data: { category: string; amoun
             </div>
           ))
         ) : (
-          <p className="muted">No expenses recorded this month. Your spending breakdown will appear after you add one.</p>
+          <p className="muted">
+            {income
+              ? 'No income recorded this month. Your income breakdown will appear after you add one.'
+              : 'No expenses recorded this month. Your spending breakdown will appear after you add one.'}
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-export function TrendChart({ data, savings = false }: { data: { month: string; income: number; expense: number; savings: number }[]; savings?: boolean }) {
+export function TrendChart({
+  data,
+  savings = false,
+  series,
+}: {
+  data: { month: string; income: number; expense: number; savings: number }[];
+  savings?: boolean;
+  series?: 'income' | 'expense';
+}) {
   const hasIncome = data.some((row) => row.income > 0);
   const money = useMoney();
   const hasExpenses = data.some((row) => row.expense > 0);
-  const hasData = savings ? data.some((row) => row.savings > 0) : hasIncome || hasExpenses;
+  const hasData = savings
+    ? data.some((row) => row.savings > 0)
+    : series === 'income'
+      ? hasIncome
+      : series === 'expense'
+        ? hasExpenses
+        : hasIncome || hasExpenses;
 
   if (!hasData) {
     return (
       <div className="trend-chart chart-empty" role="status">
         <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
-        <strong>{savings ? 'No goal allocations yet' : 'No income or expenses yet'}</strong>
+        <strong>{savings ? 'No goal allocations yet' : series ? `No ${series === 'income' ? 'income' : 'expenses'} yet` : 'No income or expenses yet'}</strong>
         <p>
           {savings
             ? 'Add a contribution to a savings goal to see its trend over these six months.'
-            : 'Record income or an expense in this six-month period to see your cash flow.'}
+            : series
+              ? `Record ${series === 'income' ? 'income' : 'an expense'} in this six-month period to see the trend.`
+              : 'Record income or an expense in this six-month period to see your cash flow.'}
         </p>
       </div>
     );
@@ -87,7 +107,7 @@ export function TrendChart({ data, savings = false }: { data: { month: string; i
             <XAxis dataKey="month" stroke="#999" fontSize={11} />
             <YAxis stroke="#999" fontSize={11} tickFormatter={(value) => money(value)} />
             <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
-            <Line type="monotone" dataKey="savings" name="Goal allocations" stroke="#b99aff" strokeWidth={3} isAnimationActive={false} />
+            <Line type="monotone" dataKey="savings" name="Goal allocations" stroke="#b99aff" strokeWidth={3} isAnimationActive={true} />
           </LineChart>
         ) : (
           <BarChart data={data}>
@@ -96,12 +116,12 @@ export function TrendChart({ data, savings = false }: { data: { month: string; i
             <YAxis stroke="#999" fontSize={11} tickFormatter={(value) => money(value)} />
             <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
             <Legend />
-            <Bar dataKey="income" name="Income" fill="#73d9ae" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="expense" name="Expenses" fill="#b99aff" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            {series !== 'expense' && <Bar dataKey="income" name="Income" fill="#73d9ae" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
+            {series !== 'income' && <Bar dataKey="expense" name="Expenses" fill="#b99aff" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
           </BarChart>
         )}
       </ResponsiveContainer>
-      {!savings && (!hasIncome || !hasExpenses) && (
+      {!savings && !series && (!hasIncome || !hasExpenses) && (
         <p className="chart-series-note">No {hasIncome ? 'expenses' : 'income'} recorded in this six-month period.</p>
       )}
     </div>

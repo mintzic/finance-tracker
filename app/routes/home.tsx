@@ -105,6 +105,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
   const t = (text: string) => translate(d.profile.language, text);
   const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
+  const isIncome = d.section === 'income';
   const [params] = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<Modal | null>(null),
@@ -437,6 +438,28 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                 Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary; untracked assets and liabilities are excluded.
               </p>
             </>
+          )}
+          {['income', 'expenses'].includes(d.section) && (
+            <div className="two-grid transaction-insights">
+              <section className="panel">
+                <div className="panel-heading">
+                  <h2>{d.section === 'income' ? 'Where it came from' : 'Where it went'}</h2>
+                  <span className="small muted">{monthName}</span>
+                </div>
+                <SpendingChart
+                  data={d.section === 'income' ? d.incomeByCategory : d.spending}
+                  total={d.section === 'income' ? d.sum.income : d.sum.expense}
+                  income={d.section === 'income'}
+                />
+              </section>
+              <section className="panel">
+                <div className="panel-heading">
+                  <h2>{isIncome ? 'Income' : 'Expenses'} over time</h2>
+                  <span className="small muted">Six months to {monthName}</span>
+                </div>
+                <TrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
+              </section>
+            </div>
           )}
           {['income', 'expenses', 'transfers'].includes(d.section) && (
             <section className="panel table-panel">

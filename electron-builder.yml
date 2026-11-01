@@ -15,6 +15,11 @@ npmRebuild: true
 mac:
   icon: desktop/resources/icon.png
   category: public.app-category.finance
+  identity: "-"
+  hardenedRuntime: true
+  entitlements: desktop/entitlements.mac.plist
+  entitlementsInherit: desktop/entitlements.mac.plist
+  notarize: false
   target:
     - dmg
     - zip

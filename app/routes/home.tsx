@@ -881,12 +881,15 @@ function Progress({ value }: { value: number }) {
     </div>
   );
 }
-function Budget({ budget: b }: { budget: { category: string; spent: number; amount: number } }) {
+function Budget({ budget: b }: { budget: { category: string; spent: number; amount: number; all_months?: number } }) {
   const money = useMoney();
   return (
     <div className="budget">
       <div>
-        <strong>{b.category}</strong>
+        <strong>
+          {b.category}
+          {b.all_months ? <small className="muted"> · All months</small> : null}
+        </strong>
         <span className={b.spent > b.amount ? 'negative' : ''}>{Math.round((b.spent / b.amount) * 100)}%</span>
       </div>
       <Progress value={(b.spent / b.amount) * 100} />
@@ -1097,9 +1100,16 @@ function Editor({
                   ))}
                 </select>
               </label>
-              {field('Month', 'month', 'month', d.month)}
+              {field('Month', 'month', 'month', v.all_months ? d.month : v.month || d.month)}
               {amount(`Monthly limit (${d.profile.currency})`)}
-              <p className="small muted">Saving replaces the limit for this category and month.</p>
+              <label className="checkbox">
+                <input type="checkbox" name="all_months" defaultChecked={Boolean(v.all_months)} />
+                Apply to all months
+              </label>
+              <p className="small muted">
+                Checked: replaces recurring limits from the selected month onward, keeping month-specific exceptions. Unchecked: overrides only the selected
+                month.
+              </p>
             </>
           )}
           {modal.type === 'subscription' && (
@@ -1185,6 +1195,7 @@ function Editor({
                 Adjust balance
               </button>
             </Form>
+            <br></br>
             <Form method="post" className="form-stack">
               <h3>Delete wallet</h3>
               <input type="hidden" name="intent" value="delete_wallet" />

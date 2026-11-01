@@ -1,5 +1,5 @@
 import { sqlite } from '../db/connection.server';
-import { monthlySummarySQL } from '../db/queries';
+import { monthlySummarySQL, monthlyBudgetsSQL } from '../db/queries';
 import { balances, type Entry } from './ledger.server';
 import { monthRange, today } from './money';
 import { deductSubscriptions } from './subscriptions.server';
@@ -27,15 +27,13 @@ export function dashboard(url: URL) {
   const incomeByCategory = sqlite
     .prepare(`SELECT category, SUM(amount) amount FROM entries WHERE kind='income' AND date>=? AND date<? GROUP BY category ORDER BY amount DESC`)
     .all(start, end) as { category: string; amount: number }[];
-  const budgets = sqlite
-    .prepare(
-      `SELECT b.*,COALESCE((SELECT SUM(e.amount) FROM entries e WHERE e.category=b.category AND e.kind='expense' AND e.date>=? AND e.date<?),0) spent FROM budgets b WHERE b.month=? ORDER BY b.category`
-    )
-    .all(start, end, month) as {
+  const budgets = sqlite.prepare(monthlyBudgetsSQL).all({ start, end, month }) as {
     id: string;
     category: string;
     amount: number;
     spent: number;
+    month: string;
+    all_months: number;
   }[];
   const wallets = balances(sqlite);
   const monthBalances = balances(sqlite, new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10));

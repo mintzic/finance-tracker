@@ -1,0 +1,1 @@
+ALTER TABLE budgets ADD COLUMN all_months INTEGER NOT NULL DEFAULT 0 CHECK(all_months IN (0,1));

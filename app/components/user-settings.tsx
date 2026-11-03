@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useFetcher } from 'react-router';
 import { X } from 'lucide-react';
-import type { Profile } from '../lib/profiles.server';
+import type { Profile } from '@/lib/profiles.server';
 import type { action } from '../routes/profiles';
-import { translate } from '../lib/preferences';
-import { currencies } from '../lib/currency';
+import { translate } from '@/lib/preferences';
+import { currencies } from '@/lib/currency';
 
 export function UserSettings({ profile, profiles, close, reset }: { profile: Profile; profiles: Profile[]; close: () => void; reset: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);

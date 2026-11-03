@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 import { Cat } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useMoney } from '../lib/preferences';
+import { useMoney } from '@/lib/preferences';
 
 const palette = ['#b99aff', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
 const tooltipStyle = { background: '#211d30', border: '1px solid #444', borderRadius: 8 };

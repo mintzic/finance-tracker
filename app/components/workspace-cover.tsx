@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetcher } from 'react-router';
 import { ImagePlus, Move, Trash2, X } from 'lucide-react';
-import type { action } from '../routes/home';
+import type { action } from '@/routes/home';
 
 export function WorkspaceCover({ cover }: { cover: { version: string; position: number } | null }) {
   const fetcher = useFetcher<typeof action>();

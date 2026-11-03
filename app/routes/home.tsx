@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router';
 import {
   Wallet,
@@ -29,21 +29,49 @@ import {
   UserRound,
 } from 'lucide-react';
 import type { Route } from './+types/home';
-import { sameOrigin } from '../lib/workspace.server';
-import { dashboard } from '../lib/dashboard.server';
-import { mutate } from '../lib/actions.server';
-import { boundedForm } from '../lib/receipts.server';
+import { sameOrigin } from '@/lib/workspace.server';
+import { dashboard } from '@/lib/dashboard.server';
+import { mutate } from '@/lib/actions.server';
+import { boundedForm } from '@/lib/receipts.server';
 
-import { decimal, today } from '../lib/money';
-import { Preferences, useMoney, translate } from '../lib/preferences';
-import { TransactionTable } from '../components/transaction-table';
-import { SpendingChart, TrendChart } from '../components/charts';
-import { Button } from '../components/ui/button';
-import { WorkspaceCover } from '../components/workspace-cover';
-import type { Entry } from '../lib/ledger.server';
-import catIcon from '../../desktop/resources/icon.png';
-import { withProfile, listProfiles } from '../lib/profiles.server';
-import { UserSettings } from '../components/user-settings';
+import { decimal, today } from '@/lib/money';
+import { Preferences, useMoney, translate } from '@/lib/preferences';
+import { TransactionTable } from '@/components/transaction-table';
+import { Button } from '@/components/ui/button';
+import { WorkspaceCover } from '@/components/workspace-cover';
+import type { Entry } from '@/lib/ledger.server';
+import catIcon from '@/../desktop/resources/icon.png';
+import { withProfile, listProfiles } from '@/lib/profiles.server';
+import { UserSettings } from '@/components/user-settings';
+
+const SpendingChart = lazy(() => import('@/components/charts').then((module) => ({ default: module.SpendingChart })));
+const TrendChart = lazy(() => import('@/components/charts').then((module) => ({ default: module.TrendChart })));
+
+function DeferredSpendingChart(props: ComponentProps<typeof SpendingChart>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="chart-empty" role="status">
+          Loading chart…
+        </div>
+      }>
+      <SpendingChart {...props} />
+    </Suspense>
+  );
+}
+
+function DeferredTrendChart(props: ComponentProps<typeof TrendChart>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="chart-empty" role="status">
+          Loading chart…
+        </div>
+      }>
+      <TrendChart {...props} />
+    </Suspense>
+  );
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   return withProfile(request, (profile) => ({ ...dashboard(new URL(request.url)), profile, profiles: listProfiles() }));
@@ -354,7 +382,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                     <h2>Where it went</h2>
                     <span className="small muted">{monthName}</span>
                   </div>
-                  <SpendingChart data={d.spending} total={d.sum.expense} />
+                  <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
                   <div className="panel-footer">
                     <span className="muted small">Every little thing adds up.</span>
                     <Link to={href('reports')}>
@@ -446,7 +474,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                   <h2>{d.section === 'income' ? 'Where it came from' : 'Where it went'}</h2>
                   <span className="small muted">{monthName}</span>
                 </div>
-                <SpendingChart
+                <DeferredSpendingChart
                   data={d.section === 'income' ? d.incomeByCategory : d.spending}
                   total={d.section === 'income' ? d.sum.income : d.sum.expense}
                   income={d.section === 'income'}
@@ -457,7 +485,7 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                   <h2>{isIncome ? 'Income' : 'Expenses'} over time</h2>
                   <span className="small muted">Six months to {monthName}</span>
                 </div>
-                <TrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
+                <DeferredTrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
               </section>
             </div>
           )}
@@ -565,8 +593,8 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under their selected category in the selected account when you open the tracker. Missed billing
-                dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
+                Active subscriptions automatically record expenses under their selected category in the selected account when you open the tracker. Missed
+                billing dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
               </p>
               <div className="three-grid">
                 {d.subscriptions.map((s) => (
@@ -683,19 +711,19 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                     <h2>Income & expenses</h2>
                     <span className="small muted">6 months to {d.month}</span>
                   </div>
-                  <TrendChart data={d.trends} />
+                  <DeferredTrendChart data={d.trends} />
                 </section>
                 <section className="panel">
                   <div className="panel-heading">
                     <h2>Spending by category</h2>
                   </div>
-                  <SpendingChart data={d.spending} total={d.sum.expense} />
+                  <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
                 </section>
                 <section className="panel">
                   <div className="panel-heading">
                     <h2>Goal allocation trends</h2>
                   </div>
-                  <TrendChart data={d.trends} savings />
+                  <DeferredTrendChart data={d.trends} savings />
                   <p className="chart-note">Amounts allocated to goals each month; not additional cash flow.</p>
                 </section>
                 <section className="panel">

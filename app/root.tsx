@@ -1,7 +1,7 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
 
 import type { Route } from './+types/root';
-import './app.css';
+import '@/app.css';
 import catIcon from '../desktop/resources/icon.png';
 
 export const links: Route.LinksFunction = () => [{ rel: 'icon', type: 'image/png', href: catIcon }];

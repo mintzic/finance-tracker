@@ -1,8 +1,8 @@
 import { useMemo, useContext } from 'react';
 import { useTable, tableFeatures, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from 'lucide-react';
-import { Preferences, useMoney } from '../lib/preferences';
-import type { Entry } from '../lib/ledger.server';
+import { Preferences, useMoney } from '@/lib/preferences';
+import type { Entry } from '@/lib/ledger.server';
 
 // Filtering, sorting, and pagination are handled by the server loader.
 const features = tableFeatures({});

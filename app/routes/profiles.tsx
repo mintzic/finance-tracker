@@ -1,9 +1,9 @@
 import { Form, Link, useNavigation } from 'react-router';
 import type { Route } from './+types/profiles';
-import { currentProfile, listProfiles, profileAction } from '../lib/profiles.server';
-import { sameOrigin } from '../lib/workspace.server';
-import { boundedForm } from '../lib/receipts.server';
-import { currencies } from '../lib/currency';
+import { currentProfile, listProfiles, profileAction } from '@/lib/profiles.server';
+import { sameOrigin } from '@/lib/workspace.server';
+import { boundedForm } from '@/lib/receipts.server';
+import { currencies } from '@/lib/currency';
 
 export function loader({ request }: Route.LoaderArgs) {
   return { profile: currentProfile(request) || null, profiles: listProfiles() };

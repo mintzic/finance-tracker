@@ -565,8 +565,8 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
               </div>
               <p className="info-note">
                 <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under {d.categories.find((c) => c.id === 'expense-4')?.name || 'Other'} in their selected
-                account when you open the tracker. Missed billing dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
+                Active subscriptions automatically record expenses under their selected category in the selected account when you open the tracker. Missed billing
+                dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
               </p>
               <div className="three-grid">
                 {d.subscriptions.map((s) => (
@@ -582,7 +582,9 @@ function HomeContent({ loaderData: d, actionData }: Pick<Route.ComponentProps, '
                       {money(s.amount)}
                       <small> / {s.recurrence === 'weekly' ? 'week' : s.recurrence === 'monthly' ? 'month' : 'year'}</small>
                     </strong>
-                    <p className="muted">{s.account_name}</p>
+                    <p className="muted">
+                      {s.category} · {s.account_name}
+                    </p>
                     <div className="panel-footer">
                       Next due <strong>{s.next_due}</strong>
                     </div>
@@ -982,6 +984,21 @@ function Editor({
       </select>
     </label>
   );
+  const expenseCategory = (value = v.category || '') => (
+    <label>
+      Category
+      <select name="category" defaultValue={value} required>
+        <option value="" disabled>
+          Select category
+        </option>
+        {expenseCategories.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   return (
     <dialog
       ref={dialog}
@@ -1118,6 +1135,7 @@ function Editor({
               <div className="form-grid">
                 {amount()}
                 {accounts()}
+                {expenseCategory()}
               </div>
               <div className="form-grid">
                 <label>

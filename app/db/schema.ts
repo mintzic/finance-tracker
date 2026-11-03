@@ -33,6 +33,7 @@ export const subscriptions = sqliteTable('subscriptions', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   amount: integer('amount').notNull(),
+  category: text('category').notNull(),
   walletId: text('wallet_id').notNull(),
   recurrence: text('recurrence').notNull(),
   nextDue: text('next_due').notNull(),

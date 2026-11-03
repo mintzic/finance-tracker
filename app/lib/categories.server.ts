@@ -52,6 +52,10 @@ export function saveCategory(db: Database.Database, form: FormData, deleting = f
       db.prepare('UPDATE entries SET category=?,fingerprint=NULL WHERE kind=? AND category=?').run(name, kind, previous.name);
 
       if (kind === 'expense') {
+        db.prepare('UPDATE subscriptions SET category=? WHERE category=?').run(name, previous.name);
+      }
+
+      if (kind === 'expense') {
         const budgets = db.prepare('SELECT id,month,amount FROM budgets WHERE category=?').all(previous.name) as {
           id: string;
           month: string;

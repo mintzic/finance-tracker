@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { data, redirect } from 'react-router';
 import { workspaceDatabase, databaseContext, databasePath } from '../db/connection.server';
 import { migrate } from '../../desktop/migrate.mjs';
+import { currencies } from './currency';
 
 export type Profile = {
   id: string;
@@ -91,7 +92,7 @@ export function profileAction(request: Request, form: FormData) {
       const language = String(form.get('language')),
         currency = String(form.get('currency'));
 
-      if (!['en-SG', 'zh-SG', 'ms-MY'].includes(language) || !['SGD', 'USD', 'EUR', 'GBP', 'MYR', 'CNY', 'AUD'].includes(currency)) {
+      if (!['en-SG', 'zh-SG', 'ms-MY'].includes(language) || !(currencies as readonly string[]).includes(currency)) {
         throw new Error('Choose a supported language and currency.');
       }
 

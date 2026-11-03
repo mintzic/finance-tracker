@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import type { Profile } from '../lib/profiles.server';
 import type { action } from '../routes/profiles';
 import { translate } from '../lib/preferences';
+import { currencies } from '../lib/currency';
 
 export function UserSettings({ profile, profiles, close, reset }: { profile: Profile; profiles: Profile[]; close: () => void; reset: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -59,7 +60,7 @@ export function UserSettings({ profile, profiles, close, reset }: { profile: Pro
           <label>
             {t('Change currency')}
             <select name="currency" defaultValue={profile.currency}>
-              {['SGD', 'USD', 'EUR', 'GBP', 'MYR', 'CNY', 'AUD'].map((currency) => (
+              {currencies.map((currency) => (
                 <option key={currency}>{currency}</option>
               ))}
             </select>

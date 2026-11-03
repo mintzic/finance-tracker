@@ -217,16 +217,25 @@ export async function mutate(form: FormData): Promise<ActionResult> {
       throw new Error('Invalid subscription settings.');
     }
 
-    const values = [text(form, 'name', 80), positive(text(form, 'amount')), wallet, recurrence, validDate(text(form, 'next_due')), status];
+    const name = text(form, 'name', 80);
+    const amount = positive(text(form, 'amount'));
+    const category = text(form, 'category');
+
+    if (!categoryNames(sqlite, 'expense').includes(category)) {
+      throw new Error('Choose a valid expense category.');
+    }
+
+    const nextDue = validDate(text(form, 'next_due'));
+    const values = [name, amount, category, wallet, recurrence, nextDue, status];
 
     if (id) {
       sqlite
         .prepare(
-          'UPDATE subscriptions SET billing_anchor=CASE WHEN next_due<>? OR recurrence<>? THEN ? ELSE billing_anchor END,name=?,amount=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?'
+          'UPDATE subscriptions SET billing_anchor=CASE WHEN next_due<>? OR recurrence<>? THEN ? ELSE billing_anchor END,name=?,amount=?,category=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?'
         )
-        .run(values[4], values[3], values[4], ...values, id);
+        .run(nextDue, recurrence, nextDue, ...values, id);
     } else {
-      sqlite.prepare('INSERT INTO subscriptions(name,amount,wallet_id,recurrence,next_due,status,id) VALUES (?,?,?,?,?,?,?)').run(...values, randomUUID());
+      sqlite.prepare('INSERT INTO subscriptions(name,amount,category,wallet_id,recurrence,next_due,status,id) VALUES (?,?,?,?,?,?,?,?)').run(...values, randomUUID());
     }
   } else if (intent === 'goal') {
     if (id) {
@@ -329,8 +338,8 @@ export async function mutate(form: FormData): Promise<ActionResult> {
         sqlite.prepare('INSERT INTO budgets(id,month,category,amount) VALUES (?,?,?,?)').run(randomUUID(), month, category, amount);
       }
       sqlite
-        .prepare('INSERT INTO subscriptions(id,name,amount,wallet_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?)')
-        .run(randomUUID(), 'Demo · Music', 1098, main, 'monthly', `${month}-28`, 'active');
+        .prepare('INSERT INTO subscriptions(id,name,amount,category,wallet_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?,?)')
+        .run(randomUUID(), 'Demo · Music', 1098, 'Entertainment', main, 'monthly', `${month}-28`, 'active');
 
       const goal = randomUUID();
 

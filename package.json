@@ -1,7 +1,7 @@
 {
   "name": "finance-tracker",
   "private": true,
-  "version": "1.0.1-beta",
+  "version": "1.0.2-beta",
   "description": "A local finance tracker for income, expenses, budgets, and subscriptions",
   "author": "Finance Tracker",
   "main": "desktop/main.mjs",

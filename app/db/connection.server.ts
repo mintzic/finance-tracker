@@ -4,10 +4,13 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import * as schema from './schema';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { migrate } from '../../desktop/migrate.mjs';
 
 export const databasePath = resolve(process.env.DATABASE_PATH || 'data/finance.sqlite');
 
 mkdirSync(dirname(databasePath), { recursive: true });
+
+await migrate(databasePath, process.env.MIGRATION_DIR || resolve('migrations'));
 
 export const workspaceDatabase = new Database(databasePath);
 export const databaseContext = new AsyncLocalStorage<Database.Database>();

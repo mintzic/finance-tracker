@@ -6,6 +6,7 @@ type Subscription = {
   id: string;
   name: string;
   amount: number;
+  category: string;
   wallet_id: string;
   recurrence: string;
   next_due: string;
@@ -62,9 +63,9 @@ export function deductSubscriptions(database: Database.Database, through = today
             database
               .prepare(
                 `INSERT INTO entries(id,kind,date,description,amount,wallet_id,category,notes)
-            VALUES (?,'expense',?,?,?,?,COALESCE((SELECT name FROM categories WHERE id='expense-4'),'Other'),?)`
+            VALUES (?,'expense',?,?,?,?,?)`
               )
-              .run(entry, date, subscription.name, subscription.amount, subscription.wallet_id, `Automatic subscription payment (${subscription.recurrence}).`);
+              .run(entry, date, subscription.name, subscription.amount, subscription.wallet_id, subscription.category, `Automatic subscription payment (${subscription.recurrence}).`);
             database.prepare('INSERT INTO subscription_charges(subscription_id,due_date,entry_id) VALUES (?,?,?)').run(subscription.id, date, entry);
             deducted++;
           }

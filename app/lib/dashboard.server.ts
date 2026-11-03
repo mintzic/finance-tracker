@@ -50,6 +50,7 @@ export function dashboard(url: URL) {
     id: string;
     name: string;
     amount: number;
+    category: string;
     wallet_id: string;
     account_name: string;
     recurrence: string;

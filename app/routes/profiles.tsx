@@ -3,6 +3,7 @@ import type { Route } from './+types/profiles';
 import { currentProfile, listProfiles, profileAction } from '../lib/profiles.server';
 import { sameOrigin } from '../lib/workspace.server';
 import { boundedForm } from '../lib/receipts.server';
+import { currencies } from '../lib/currency';
 
 export function loader({ request }: Route.LoaderArgs) {
   return { profile: currentProfile(request) || null, profiles: listProfiles() };
@@ -45,7 +46,7 @@ export default function Profiles({ loaderData: { profile, profiles }, actionData
           <label>
             Currency
             <select name="currency" defaultValue={profile.currency}>
-              {['SGD', 'USD', 'EUR', 'GBP', 'MYR', 'CNY', 'AUD'].map((currency) => (
+              {currencies.map((currency) => (
                 <option key={currency}>{currency}</option>
               ))}
             </select>

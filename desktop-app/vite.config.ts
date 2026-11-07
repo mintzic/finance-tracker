@@ -9,7 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./app', import.meta.url)) },
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

@@ -1,19 +1,59 @@
 # Folio desktop
 
-Local-first finance tracker built with Tauri 2, React, React Router data routing, and Rust/SQLite. No Electron or Node server runs inside the installed application.
+Local-first finance tracker built with Tauri 2, React, React Router data routing, and Rust/SQLite. The installed app runs no Electron or Node server.
 
 ## Development
 
-Install Node.js, Rust, and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/), then:
+Install Node.js, Rust, and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), then:
 
 ```sh
 npm ci
 npm run tauri dev
 ```
 
-`npm run dev` alone serves the frontend, but financial operations require the Tauri runtime. Routes use hash navigation (`/#/`, `/#/profiles`) with the original dashboard query parameters. Route loaders/actions call typed, feature-specific Tauri commands; financial validation and SQL execute in Rust. Feature implementations live directly in `src-tauri/src/commands/` (accounts, transactions, budgets, categories, subscriptions, goals, profiles, imports, files, overview, and maintenance). `commands/mod.rs::handler()` registers every command with `tauri::generate_handler!`. There is no separate `finance/` directory or generic native mutation endpoint. Shared validation/transaction helpers live in `commands/shared.rs`, and database/profile persistence stays in `src-tauri/src/workspace.rs`.
+Frontend-only `npm run dev` cannot perform financial operations without Tauri. Hash routes are `/#/` and `/#/settings`. React Router loaders/actions call feature-specific commands registered in `src-tauri/src/commands/mod.rs`; validation and SQL execute in Rust.
 
-## Checks and packaging
+## One profile, multiple ledgers
+
+A single profile contains username and language. A new installation creates an editable `You` profile and a `Default` ledger. Create as many ledgers as needed—for example Education and Work—and switch, rename, or delete them in Settings. Every ledger has independent accounts, transactions, budgets, subscriptions, goals, categories, receipts, and header image. Selection persists across restarts. Deletion requires `DELETE`, creates a database backup, and cannot remove the last ledger. Reset clears only the active ledger.
+
+### Currency defaults
+
+Each ledger has its own currency, selected at creation. The default is inferred from OS regional settings (macOS AppleLocale or Windows culture; monetary locale environment settings as fallback). Unknown/unavailable regions default to **USD**. Detection is local: no GPS, network lookup, or location permission. Users can choose a different currency before creating a ledger. Existing ledger currencies are never changed when system settings change; renaming preserves currency. Amounts are not converted between currencies. Amount arithmetic retains the existing fixed two-decimal representation.
+
+## Storage and naming
+
+Under Tauri's application-data directory for `com.mintzic.folio` (macOS: `~/Library/Application Support/com.mintzic.folio`):
+
+```text
+folio.sqlite                 # profile, ledgers, app_settings
+ledgers/<uuid>.sqlite        # financial records for one ledger
+backups/                     # pre-deletion database backups
+```
+
+Financial tables include `accounts`, `transactions`, `budgets`, `subscriptions`, `goals`, `contributions`, `categories`, `receipts`, `receipt_files`, and `ledger_cover`. Columns use `account_id`, `destination_account_id`, and `transaction_id` rather than wallet/entry terminology.
+
+`src-tauri/src/storage.rs` owns registry/ledger connections and migration. `commands/profile.rs` manages the one profile; `commands/ledgers.rs` manages ledgers. Feature commands remain directly under `commands/`. The fresh financial schema is `src-tauri/src/schema.sql`.
+
+## Existing installations and Electron import
+
+Back up the whole old data directory while its app is closed before upgrading.
+
+- On startup, the earlier Tauri `finance.sqlite`/`profiles` layout is automatically converted through staged copies into the new layout.
+- Each old profile becomes a ledger, retaining its name, currency, and records. The selected old profile supplies the single profile's username/language and selected ledger. An unprofiled legacy finance database becomes a Default ledger.
+- Original databases remain untouched; SQLite backup snapshots and converted ledgers are validated before the new registry is published.
+- Historical migrations `0001–0008` are unchanged and checksum-verified. `0009_ledger_names.sql` renames financial tables/columns on the copies. Never edit applied migrations.
+- Unreferenced legacy profile databases cause an explicit error instead of silently excluding their records.
+
+To import a separate Electron directory, open Settings → Import legacy data **before customizing the default profile/ledger or entering records**. Enter the absolute directory containing `finance.sqlite`, `profiles`, and `receipts`, type `IMPORT`, and submit. The destination must be an unused Default ledger, including unchanged default categories. Sources remain untouched; missing receipts, unsafe paths, or nonempty destinations reject the import. Keep backups until you have verified balances, attachments, and reports in every imported ledger.
+
+## Header images
+
+PNG/JPEG/WebP cover uploads have no 5 MB file-size cap. Binary IPC avoids JSON byte arrays. Rust processes images on a background worker before saving, resizing without upscaling to fit **2560 × 1440** and stripping metadata. Output is JPEG quality 85, or PNG for an alpha channel. Only optimized bytes are stored; failures retain the current header. An in-flight upload remains bound to its initiating ledger.
+
+Large inputs, including files over 100 MB, still need upload memory/time. Decoding is guarded by 32,768 pixels per axis, 100 million total pixels, and a 512 MiB decoder allocation budget—not a process-wide memory cap. Existing images are optimized only when re-uploaded. Receipts retain a 5 MB limit; CSV retains a 1 MB limit.
+
+## Validation and packaging
 
 ```sh
 npm run build
@@ -22,30 +62,4 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run tauri build
 ```
 
-Packaging/signing for distribution may require platform signing credentials. The existing lint configuration references `@stylistic/eslint-plugin` and `typescript-eslint`, which are not currently declared in package.json; `npm run lint` cannot run until that pre-existing tooling configuration is completed.
-
-## Storage and profiles
-
-Data lives under Tauri's application-data directory for `com.mintzic.folio` (on macOS, `~/Library/Application Support/com.mintzic.folio`). The registry/legacy workspace is `finance.sqlite`; other profiles use `profiles/<uuid>.sqlite`. Active profile selection persists across restarts. Display currency changes relabel amounts, not exchange rates.
-
-The original eight SQL migrations are embedded with matching SHA-256 checksums. Receipts are stored transactionally in SQLite's `native_files` table; covers retain the original blob schema. Never edit migration files after they have been applied. Back up the whole application-data directory while Folio is closed.
-
-## Header image uploads
-
-Cover uploads no longer have a 5 MB file-size limit. They use binary Tauri IPC rather than JSON byte arrays. The Rust backend validates PNG/JPEG/WebP images and optimizes them on a background worker before saving: at most 2560 × 1440 pixels, preserving aspect ratio without upscaling, JPEG quality 85 or PNG when an alpha channel is present. Re-encoding strips metadata. Only the optimized image is stored and displayed; failed processing leaves the existing cover intact.
-
-Large compressed files, including files over 100 MB, can be accepted, but decoding is guarded by 32,768 pixels per axis, 100 million total pixels, and a 512 MiB decoder allocation budget. These are decoder safeguards, not a total process-memory cap; initial upload still needs memory and time. Receipt uploads retain their 5 MB limit. Existing saved covers are not automatically reprocessed; upload them again to optimize them.
-
-## Importing Electron data
-
-1. Quit the old Electron app and make your own backup of its entire data directory.
-2. Start a fresh Folio installation. Before creating a profile, use **Import your Electron workspace** on the welcome/profiles screen.
-3. Enter the absolute directory containing the old `finance.sqlite`, `profiles` directory (if present), and `receipts` directory.
-4. Type `IMPORT` and submit. Folio makes SQLite backup copies, validates migrations/relationships, and imports receipt bytes. It does not modify the source files.
-5. Select an imported profile (or create the first profile for an older unprofiled workspace), then verify your accounts, balances, attachments, and reports before retiring the old app.
-
-Import is deliberately rejected when the destination already contains profiles or financial records. Missing receipt files or unsafe paths fail the import rather than silently losing attachments. Keep both the original backup and imported backup copies until verification is complete.
-
-## Migration boundaries
-
-The desktop UI and finance operations were ported from the Electron app. `mobile-app` and `server` are not part of this migration. Browser HTTP resource endpoints were replaced with native commands and Blob-based display/download handling. Native UI, file downloads, and platform-specific packaging should be smoke-tested on each target OS before distribution.
+Release signing requires platform-specific credentials. Native UI, file downloads, and packaging should be smoke-tested on each target OS. `mobile-app` and `server` are outside this migration.

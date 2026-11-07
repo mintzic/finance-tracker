@@ -1,11 +1,11 @@
 import { useContext } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Paperclip, Pencil, Cat } from 'lucide-react';
 import { Preferences, useMoney } from '@/lib/preferences';
-import type { Entry } from '@/lib/types';
+import type { Transaction } from '@/lib/types';
 import { ReceiptLink } from './native-assets';
 
 // Filtering, sorting, and pagination are handled by the dashboard loader.
-export function TransactionTable({ rows, onEdit, transfers = false }: { rows: Entry[]; onEdit: (entry: Entry) => void; transfers?: boolean }) {
+export function TransactionTable({ rows, onEdit, transfers = false }: { rows: Transaction[]; onEdit: (transaction: Transaction) => void; transfers?: boolean }) {
   const money = useMoney();
   const { language } = useContext(Preferences);
   return (
@@ -22,48 +22,48 @@ export function TransactionTable({ rows, onEdit, transfers = false }: { rows: En
           </tr>
         </thead>
         <tbody>
-          {rows.map((entry) => (
-            <tr key={entry.id}>
+          {rows.map((transaction) => (
+            <tr key={transaction.id}>
               <td>
                 <div className="transaction-name">
-                  <span className={`transaction-icon ${entry.kind}`}>
-                    {entry.kind === 'expense' ? (
+                  <span className={`transaction-icon ${transaction.kind}`}>
+                    {transaction.kind === 'expense' ? (
                       <ArrowUpRight size={15} />
-                    ) : entry.kind === 'income' ? (
+                    ) : transaction.kind === 'income' ? (
                       <ArrowDownLeft size={15} />
                     ) : (
                       <ArrowLeftRight size={15} />
                     )}
                   </span>
                   <div>
-                    <strong>{entry.description}</strong>
+                    <strong>{transaction.description}</strong>
                   </div>
                 </div>
               </td>
               <td>
                 <span>
-                  {entry.account_name}
-                  {!transfers && entry.destination_name && ` → ${entry.destination_name}`}
+                  {transaction.account_name}
+                  {!transfers && transaction.destination_name && ` → ${transaction.destination_name}`}
                 </span>
               </td>
-              <td>{transfers ? <span>{entry.destination_name ?? '—'}</span> : <span className="tag">{entry.category}</span>}</td>
+              <td>{transfers ? <span>{transaction.destination_name ?? '—'}</span> : <span className="tag">{transaction.category}</span>}</td>
               <td>
-                <span className="muted nowrap">{new Date(entry.date + 'T00:00:00').toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
+                <span className="muted nowrap">{new Date(transaction.date + 'T00:00:00').toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
               </td>
               <td>
-                <span className={`amount ${entry.kind === 'income' ? 'positive' : ''}`}>
-                  {entry.kind === 'expense' ? '−' : entry.kind === 'income' ? '+' : ''}
-                  {money(entry.amount)}
+                <span className={`amount ${transaction.kind === 'income' ? 'positive' : ''}`}>
+                  {transaction.kind === 'expense' ? '−' : transaction.kind === 'income' ? '+' : ''}
+                  {money(transaction.amount)}
                 </span>
               </td>
               <td>
                 <div className="row-actions">
-                  {entry.receipt_id && (
-                    <ReceiptLink id={entry.receipt_id}>
+                  {transaction.receipt_id && (
+                    <ReceiptLink id={transaction.receipt_id}>
                       <Paperclip size={14} />
                     </ReceiptLink>
                   )}
-                  <button type="button" className="icon-button" aria-label={`Edit ${entry.description}`} onClick={() => onEdit(entry)}>
+                  <button type="button" className="icon-button" aria-label={`Edit ${transaction.description}`} onClick={() => onEdit(transaction)}>
                     <Pencil size={14} />
                   </button>
                 </div>

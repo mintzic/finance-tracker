@@ -4,8 +4,8 @@ import { useFetcher } from 'react-router';
 import { ImagePlus, Move, Trash2, X } from 'lucide-react';
 import type { action } from '@/routes/home';
 
-export function WorkspaceCover({ cover, profileId }: { cover: { version: string; position: number } | null; profileId: string }) {
-  const { url, error } = useCoverUrl(cover?.version, profileId);
+export function LedgerCover({ cover, ledgerId }: { cover: { version: string; position: number } | null; ledgerId: string }) {
+  const { url, error } = useCoverUrl(cover?.version, ledgerId);
   const fetcher = useFetcher<typeof action>();
   const [uploading, setUploading] = useState(false);
   const [repositioning, setRepositioning] = useState(false);
@@ -26,12 +26,12 @@ export function WorkspaceCover({ cover, profileId }: { cover: { version: string;
 
   return (
     <section
-      className={`workspace-cover ${cover ? 'has-cover' : ''} ${uploading || repositioning || busy ? 'cover-editing' : ''}`}
-      aria-label="Workspace cover">
+      className={`ledger-cover ${cover ? 'has-cover' : ''} ${uploading || repositioning || busy ? 'cover-editing' : ''}`}
+      aria-label="Ledger cover">
       {cover && url && (
         <img
           src={url}
-          alt="Custom workspace cover"
+          alt="Custom ledger cover"
           draggable={false}
           className={repositioning ? 'cover-repositioning' : ''}
           style={{ objectPosition: `center ${position}%` }}

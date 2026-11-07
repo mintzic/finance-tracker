@@ -13,10 +13,10 @@ function download(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export function useCoverUrl(version: string | undefined, profileId: string) {
+export function useCoverUrl(version: string | undefined, ledgerId: string) {
   const [asset, setAsset] = useState<{ key: string; url: string }>();
   const [error, setError] = useState('');
-  const key = `${profileId}:${version}`;
+  const key = `${ledgerId}:${version}`;
   useEffect(() => {
     let active = true;
     let url: string | undefined;
@@ -34,7 +34,7 @@ export function useCoverUrl(version: string | undefined, profileId: string) {
     return () => { active = false;
 
  if (url) {URL.revokeObjectURL(url);} };
-  }, [version, profileId, key]);
+  }, [version, ledgerId, key]);
   return { url: asset?.key === key ? asset.url : undefined, error };
 }
 

@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { money } from './money';
 
-export const Preferences = createContext({ language: 'en-SG', currency: 'SGD' });
+export const Preferences = createContext({ language: 'en-SG', currency: 'USD' });
 export function useMoney() {
   const { language, currency } = useContext(Preferences);
   return (value: number) => money(value, language, currency);
@@ -19,14 +19,11 @@ const translations: Record<string, Record<string, string>> = {
     Reports: '报告',
     Categories: '分类',
     'Import & export': '导入与导出',
-    'My workspace': '我的工作区',
+    'My ledger': '我的账本',
     'User settings': '用户设置',
     'Change profile': '修改个人资料',
     'Change language': '更改语言',
-    'Change currency': '更改货币',
-    'Switch user': '切换用户',
-    'Add user': '添加用户',
-    'Reset workspace': '重置工作区',
+    'Reset ledger': '重置账本',
   },
   'ms-MY': {
     Overview: 'Gambaran keseluruhan',
@@ -40,14 +37,11 @@ const translations: Record<string, Record<string, string>> = {
     Reports: 'Laporan',
     Categories: 'Kategori',
     'Import & export': 'Import & eksport',
-    'My workspace': 'Ruang kerja saya',
+    'My ledger': 'Lejar saya',
     'User settings': 'Tetapan pengguna',
     'Change profile': 'Ubah profil',
     'Change language': 'Ubah bahasa',
-    'Change currency': 'Ubah mata wang',
-    'Switch user': 'Tukar pengguna',
-    'Add user': 'Tambah pengguna',
-    'Reset workspace': 'Tetapkan semula ruang kerja',
+    'Reset ledger': 'Tetapkan semula lejar',
   },
 };
 export const translate = (language: string, text: string) => translations[language]?.[text] || text;

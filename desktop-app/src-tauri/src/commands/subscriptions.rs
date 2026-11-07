@@ -1,8 +1,8 @@
 use super::shared::*;
 pub(super) fn save_subscription_operation(c: &Connection, f: &Value) -> R<Value> {
     let id = field(f, "id");
-    let wallet = text(f, "wallet_id", 200)?;
-    let w = record(c, "wallets", &wallet)?;
+    let account = text(f, "account_id", 200)?;
+    let w = record(c, "accounts", &account)?;
     if !id.is_empty() {
         record(c, "subscriptions", id)?;
     }
@@ -25,26 +25,20 @@ pub(super) fn save_subscription_operation(c: &Connection, f: &Value) -> R<Value>
     if id.is_empty() {
         exec(
             c,
-            "INSERT INTO subscriptions(id,name,amount,category,wallet_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?,?)",
-            params![uid(), name, amount, cat, wallet, recurrence, due, status],
+            "INSERT INTO subscriptions(id,name,amount,category,account_id,recurrence,next_due,status) VALUES (?,?,?,?,?,?,?,?)",
+            params![uid(), name, amount, cat, account, recurrence, due, status],
         )?;
     } else {
         exec(
             c,
-            "UPDATE subscriptions SET billing_anchor=CASE WHEN next_due<>? OR recurrence<>? THEN ? ELSE billing_anchor END,name=?,amount=?,category=?,wallet_id=?,recurrence=?,next_due=?,status=? WHERE id=?",
-            params![
-                due, recurrence, due, name, amount, cat, wallet, recurrence, due, status, id
-            ],
+            "UPDATE subscriptions SET billing_anchor=CASE WHEN next_due<>? OR recurrence<>? THEN ? ELSE billing_anchor END,name=?,amount=?,category=?,account_id=?,recurrence=?,next_due=?,status=? WHERE id=?",
+            params![due, recurrence, due, name, amount, cat, account, recurrence, due, status, id],
         )?;
     }
     Ok(message("Saved successfully."))
 }
 #[tauri::command]
 pub fn save_subscription(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(
-        &mut workspace.connection()?,
-        &form,
-        save_subscription_operation,
-    )
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, save_subscription_operation)
 }

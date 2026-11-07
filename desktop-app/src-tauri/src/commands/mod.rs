@@ -1,27 +1,29 @@
 mod accounts;
-mod app;
 mod budgets;
 mod categories;
 mod files;
 mod goals;
 mod imports;
 mod ledger;
+mod ledgers;
 mod maintenance;
 mod overview;
-mod profiles;
+mod profile;
 pub(crate) mod shared;
 mod subscriptions;
+
 #[cfg(test)]
 mod tests;
 mod transactions;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
-        app::greeting,
         overview::dashboard,
-        profiles::profiles,
-        profiles::create_profile,
-        profiles::update_profile,
-        profiles::switch_profile,
+        profile::update_profile,
+        ledgers::settings,
+        ledgers::create_ledger,
+        ledgers::update_ledger,
+        ledgers::switch_ledger,
+        ledgers::delete_ledger,
         accounts::save_account,
         accounts::adjust_account,
         accounts::delete_account,
@@ -35,7 +37,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         goals::save_goal,
         goals::add_contribution,
         goals::delete_contribution,
-        maintenance::reset_workspace,
+        maintenance::reset_ledger,
         maintenance::seed_demo,
         files::upload_cover,
         files::remove_cover,

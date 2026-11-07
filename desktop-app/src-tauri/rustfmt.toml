@@ -1,0 +1,8 @@
+# Stable rustfmt settings. Cargo fmt also infers the edition from Cargo.toml.
+edition = "2024"
+
+use_field_init_shorthand = true
+use_small_heuristics = "Max"
+
+# Import grouping and comment wrapping require nightly rustfmt and are omitted.
+# rustfmt has no space_before_fn_body or space_after_fn_body options.

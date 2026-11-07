@@ -1,6 +1,6 @@
 import { createHashRouter, RouterProvider, useRouteError, isRouteErrorResponse, Link } from 'react-router';
 import Home, { loader as homeLoader, action as homeAction } from './routes/home';
-import Profiles, { loader as profilesLoader, action as profilesAction } from './routes/profiles';
+import Settings, { loader as settingsLoader, action as settingsAction } from './routes/settings';
 import { errorMessage } from './lib/bridge';
 import './App.css';
 
@@ -12,7 +12,7 @@ function RouteError() {
       <p className="error" role="alert">
         {isRouteErrorResponse(error) ? `${error.status} ${error.statusText}` : errorMessage(error)}
       </p>
-      <Link to="/profiles">Open profiles</Link>
+      <Link to="/settings">Open settings</Link>
       {' · '}
       <button onClick={() => window.location.reload()}>Try again</button>
     </main>
@@ -20,7 +20,7 @@ function RouteError() {
 }
 const router = createHashRouter([
   { path: '/', Component: Home, loader: homeLoader, action: homeAction, ErrorBoundary: RouteError },
-  { path: '/profiles', Component: Profiles, loader: profilesLoader, action: profilesAction, ErrorBoundary: RouteError },
+  { path: '/settings', Component: Settings, loader: settingsLoader, action: settingsAction, ErrorBoundary: RouteError },
 ]);
 export default function App() {
   return <RouterProvider router={router} />;

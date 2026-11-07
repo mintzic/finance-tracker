@@ -25,8 +25,8 @@ pub(super) fn save_goal_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 #[tauri::command]
 pub fn save_goal(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, save_goal_operation)
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, save_goal_operation)
 }
 pub(super) fn add_contribution_operation(c: &Connection, f: &Value) -> R<Value> {
     let goal = text(f, "goal_id", 200)?;
@@ -42,12 +42,8 @@ pub(super) fn add_contribution_operation(c: &Connection, f: &Value) -> R<Value> 
 }
 #[tauri::command]
 pub fn add_contribution(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(
-        &mut workspace.connection()?,
-        &form,
-        add_contribution_operation,
-    )
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, add_contribution_operation)
 }
 pub(super) fn delete_contribution_operation(c: &Connection, f: &Value) -> R<Value> {
     let id = field(f, "id");
@@ -57,10 +53,6 @@ pub(super) fn delete_contribution_operation(c: &Connection, f: &Value) -> R<Valu
 }
 #[tauri::command]
 pub fn delete_contribution(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(
-        &mut workspace.connection()?,
-        &form,
-        delete_contribution_operation,
-    )
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, delete_contribution_operation)
 }

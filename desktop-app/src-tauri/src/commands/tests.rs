@@ -25,11 +25,9 @@ fn cover_image(width: u32, height: u32, alpha: bool) -> Vec<u8> {
 #[test]
 fn cover_optimization_formats_dimensions_and_large_input() {
     use image::GenericImageView;
-    for (width, height, alpha, expected) in [
-        (3000, 1500, false, (2560, 1280)),
-        (1000, 2000, true, (720, 1440)),
-        (2, 3, false, (2, 3)),
-    ] {
+    for (width, height, alpha, expected) in
+        [(3000, 1500, false, (2560, 1280)), (1000, 2000, true, (720, 1440)), (2, 3, false, (2, 3))]
+    {
         let (bytes, mime) = files::optimize_cover(&cover_image(width, height, alpha)).unwrap();
         assert_eq!(mime, if alpha { "image/png" } else { "image/jpeg" });
         let image = image::load_from_memory(&bytes).unwrap();
@@ -46,22 +44,14 @@ fn cover_optimization_formats_dimensions_and_large_input() {
     assert!(bytes.len() < 1024);
     large.truncate(6 * 1024 * 1024);
     let mut c = db();
-    transaction(
-        &mut c,
-        &json!({"cover":{"bytes":large}}),
-        files::upload_cover_operation,
-    )
-    .unwrap();
+    transaction(&mut c, &json!({"cover":{"bytes":large}}), files::upload_cover_operation).unwrap();
 
     for format in [image::ImageFormat::Jpeg, image::ImageFormat::WebP] {
         let image = image::load_from_memory(&cover_image(2, 2, false)).unwrap();
         let mut input = std::io::Cursor::new(Vec::new());
         image.write_to(&mut input, format).unwrap();
         let (bytes, _) = files::optimize_cover(input.get_ref()).unwrap();
-        assert_eq!(
-            image::load_from_memory(&bytes).unwrap().dimensions(),
-            (2, 2)
-        );
+        assert_eq!(image::load_from_memory(&bytes).unwrap().dimensions(), (2, 2));
     }
 }
 
@@ -70,24 +60,17 @@ fn cover_invalid_dimensions_and_replacement_rollback() {
     let mut c = db();
     let form = json!({"cover":{"bytes":cover_image(2, 2, true)}});
     transaction(&mut c, &form, files::upload_cover_operation).unwrap();
-    let previous = one(&c, "SELECT * FROM workspace_cover", []).unwrap();
+    let previous = one(&c, "SELECT * FROM ledger_cover", []).unwrap();
     for bytes in [b"not an image".to_vec(), b"\x89PNG\r\n\x1a\n".to_vec(), {
         let mut bytes = cover_image(2, 2, false);
         bytes.truncate(bytes.len() / 2);
         bytes
     }] {
         assert!(
-            transaction(
-                &mut c,
-                &json!({"cover":{"bytes":bytes}}),
-                files::upload_cover_operation
-            )
-            .is_err()
+            transaction(&mut c, &json!({"cover":{"bytes":bytes}}), files::upload_cover_operation)
+                .is_err()
         );
-        assert_eq!(
-            one(&c, "SELECT * FROM workspace_cover", []).unwrap(),
-            previous
-        );
+        assert_eq!(one(&c, "SELECT * FROM ledger_cover", []).unwrap(), previous);
     }
     // Generate valid PNG IHDR checksums without allocating the claimed image.
     for (width, height) in [(32769u32, 1u32), (10001, 10000)] {
@@ -103,38 +86,30 @@ fn cover_invalid_dimensions_and_replacement_rollback() {
         }
         bytes[29..33].copy_from_slice(&(!crc).to_be_bytes());
         let error = files::optimize_cover(&bytes).unwrap_err();
-        assert!(
-            error.contains("limit") || error.contains("100 million"),
-            "{error}"
-        );
+        assert!(error.contains("limit") || error.contains("100 million"), "{error}");
     }
-    c.execute_batch("CREATE TRIGGER fail_cover BEFORE UPDATE ON workspace_cover BEGIN SELECT RAISE(ABORT, 'cover failure'); END;").unwrap();
+    c.execute_batch("CREATE TRIGGER fail_cover BEFORE UPDATE ON ledger_cover BEGIN SELECT RAISE(ABORT, 'cover failure'); END;").unwrap();
     assert!(transaction(&mut c, &form, files::upload_cover_operation).is_err());
-    assert_eq!(
-        one(&c, "SELECT * FROM workspace_cover", []).unwrap(),
-        previous
-    );
+    assert_eq!(one(&c, "SELECT * FROM ledger_cover", []).unwrap(), previous);
 }
 
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     initialize(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO wallets(id,name,opening) VALUES ('a','Everyday',10000),('b','Savings',20000)",
+        "INSERT INTO accounts(id,name,opening) VALUES ('a','Everyday',10000),('b','Savings',20000)",
     )
     .unwrap();
     c
 }
-fn entry() -> Value {
-    json!({"intent":"entry","kind":"expense","date":"2026-10-01","description":"Coffee","amount":"5.50","wallet_id":"a","category":"Food & dining"})
+fn transaction_form() -> Value {
+    json!({"intent":"transaction","kind":"expense","date":"2026-10-01","description":"Coffee","amount":"5.50","account_id":"a","category":"Food & dining"})
 }
 fn count(c: &Connection, table: &str) -> i64 {
-    c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
-        .unwrap()
+    c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0)).unwrap()
 }
 fn id(c: &Connection, table: &str) -> String {
-    c.query_row(&format!("SELECT id FROM {table} LIMIT 1"), [], |r| r.get(0))
-        .unwrap()
+    c.query_row(&format!("SELECT id FROM {table} LIMIT 1"), [], |r| r.get(0)).unwrap()
 }
 fn bill(c: &mut Connection, through: &str) -> R<usize> {
     let tx = c.transaction().map_err(err)?;
@@ -147,88 +122,74 @@ fn initialization_is_idempotent() {
     let c = db();
     initialize(&c).unwrap();
     assert_eq!(count(&c, "categories"), 14);
-    assert_eq!(count(&c, "wallets"), 2);
+    assert_eq!(count(&c, "accounts"), 2);
 }
 #[test]
 fn money_and_dates() {
     assert_eq!(minor("12.5").unwrap(), 1250);
     assert_eq!(minor("-0.01").unwrap(), -1);
     assert_eq!(minor("0.10").unwrap() + minor("0.20").unwrap(), 30);
-    for s in [
-        "1.001",
-        "1e2",
-        "NaN",
-        "Infinity",
-        "1,000.00",
-        "",
-        "+1",
-        "1.",
-        "99999999999",
-    ] {
+    for s in ["1.001", "1e2", "NaN", "Infinity", "1,000.00", "", "+1", "1.", "99999999999"] {
         assert!(minor(s).is_err(), "{s}");
     }
     assert!(date("2024-02-29").is_ok());
     for s in ["2026-02-29", "2026-04-31", "2026-2-01", "1899-01-01"] {
         assert!(date(s).is_err());
     }
-    assert_eq!(
-        month_range("2026-12").unwrap(),
-        ("2026-12-01".into(), "2027-01-01".into())
-    );
+    assert_eq!(month_range("2026-12").unwrap(), ("2026-12-01".into(), "2027-01-01".into()));
     assert!(month_range("9999-01").is_err());
 }
 #[test]
 fn transfers_edit_delete_and_summary() {
     let mut c = db();
-    let mut f = entry();
+    let mut f = transaction_form();
     f["kind"] = json!("transfer");
-    f["destination_id"] = json!("b");
+    f["destination_account_id"] = json!("b");
     f["amount"] = json!("30.00");
     mutate(&mut c, &f).unwrap();
     assert_eq!(balances(&c, "9999-12-31").unwrap()[0]["balance"], 7000);
     assert_eq!(balances(&c, "9999-12-31").unwrap()[1]["balance"], 23000);
     let d = dashboard(&mut c, &json!({"month":"2026-10"})).unwrap();
     assert_eq!(d["sum"], json!({"income":0,"expense":0}));
-    f["id"] = json!(id(&c, "entries"));
+    f["id"] = json!(id(&c, "transactions"));
     f["amount"] = json!("20.00");
     mutate(&mut c, &f).unwrap();
     assert_eq!(balances(&c, "9999-12-31").unwrap()[0]["balance"], 8000);
-    mutate(&mut c, &json!({"intent":"delete_entry","id":f["id"]})).unwrap();
+    mutate(&mut c, &json!({"intent":"delete_transaction","id":f["id"]})).unwrap();
     assert_eq!(balances(&c, "9999-12-31").unwrap()[0]["balance"], 10000);
 }
 #[test]
-fn invalid_entries_are_atomic() {
+fn invalid_transactions_are_atomic() {
     let mut c = db();
     for patch in [
         json!({"amount":"1.001"}),
         json!({"date":"2026-02-29"}),
         json!({"category":"Unknown"}),
-        json!({"kind":"transfer","destination_id":"a"}),
-        json!({"kind":"transfer","destination_id":"missing"}),
+        json!({"kind":"transfer","destination_account_id":"a"}),
+        json!({"kind":"transfer","destination_account_id":"missing"}),
     ] {
-        let mut f = entry();
+        let mut f = transaction_form();
         for (k, v) in patch.as_object().unwrap() {
             f[k] = v.clone();
         }
         assert!(mutate(&mut c, &f).is_err());
     }
-    assert_eq!(count(&c, "entries"), 0);
+    assert_eq!(count(&c, "transactions"), 0);
 }
 #[test]
 fn archived_account_edits() {
     let mut c = db();
-    mutate(&mut c, &entry()).unwrap();
-    let mut f = entry();
-    f["id"] = json!(id(&c, "entries"));
-    c.execute_batch("UPDATE wallets SET archived=1 WHERE id='a'")
-        .unwrap();
+    mutate(&mut c, &transaction_form()).unwrap();
+    let mut f = transaction_form();
+    f["id"] = json!(id(&c, "transactions"));
+    c.execute_batch("UPDATE accounts SET archived=1 WHERE id='a'").unwrap();
     mutate(&mut c, &f).unwrap();
-    assert!(mutate(&mut c, &entry()).is_err());
+    assert!(mutate(&mut c, &transaction_form()).is_err());
 }
 #[test]
 fn month_boundaries_and_allocations() {
     let mut c = db();
-    let mut f = entry();
+    let mut f = transaction_form();
     f["date"] = json!("2024-02-29");
     mutate(&mut c, &f).unwrap();
     f["date"] = json!("2024-03-01");
@@ -237,7 +198,7 @@ fn month_boundaries_and_allocations() {
     let d = dashboard(&mut c, &json!({"month":"2024-02"})).unwrap();
     assert_eq!(d["sum"]["expense"], 550);
     assert_eq!(d["monthBalances"][0]["balance"], 9450);
-    assert_eq!(d["wallets"][0]["balance"], 8900);
+    assert_eq!(d["accounts"][0]["balance"], 8900);
     assert_eq!(d["goals"][0]["saved"], 5000);
     assert_eq!(d["trends"].as_array().unwrap().len(), 6);
     assert!(d.get("edit").is_none());
@@ -253,69 +214,34 @@ fn budget_series_and_override() {
     f["all_months"] = json!("");
     mutate(&mut c, &f).unwrap();
     for (month, n) in [("2026-11", 20000), ("2026-12", 15000), ("2027-01", 20000)] {
-        assert_eq!(
-            dashboard(&mut c, &json!({"month":month})).unwrap()["budgets"][0]["amount"],
-            n
-        );
+        assert_eq!(dashboard(&mut c, &json!({"month":month})).unwrap()["budgets"][0]["amount"], n);
     }
     f["id"] = json!(recurring);
     f["month"] = json!("2026-10");
     mutate(&mut c, &f).unwrap();
-    assert_eq!(
-        record(&c, "budgets", &recurring).unwrap()["month"],
-        "2026-11"
-    );
+    assert_eq!(record(&c, "budgets", &recurring).unwrap()["month"], "2026-11");
 }
 #[test]
 fn categories_propagate_and_merge() {
     let mut c = db();
-    mutate(&mut c, &entry()).unwrap();
+    mutate(&mut c, &transaction_form()).unwrap();
     c.execute_batch("INSERT INTO budgets(id,month,category,amount) VALUES ('x','2026-10','Food & dining',5000),('y','2026-10','Other',1000)").unwrap();
-    mutate(
-        &mut c,
-        &json!({"intent":"category","id":"expense-0","name":"Dining"}),
-    )
-    .unwrap();
-    assert_eq!(
-        record(&c, "entries", &id(&c, "entries")).unwrap()["category"],
-        "Dining"
-    );
-    mutate(
-        &mut c,
-        &json!({"intent":"delete_category","id":"expense-0"}),
-    )
-    .unwrap();
+    mutate(&mut c, &json!({"intent":"category","id":"expense-0","name":"Dining"})).unwrap();
+    assert_eq!(record(&c, "transactions", &id(&c, "transactions")).unwrap()["category"], "Dining");
+    mutate(&mut c, &json!({"intent":"delete_category","id":"expense-0"})).unwrap();
     assert_eq!(count(&c, "budgets"), 1);
     assert_eq!(record(&c, "budgets", "y").unwrap()["amount"], 6000);
-    assert!(
-        mutate(
-            &mut c,
-            &json!({"intent":"delete_category","id":"expense-8"})
-        )
-        .is_err()
-    );
-    assert!(
-        mutate(
-            &mut c,
-            &json!({"intent":"category","kind":"expense","name":"other"})
-        )
-        .is_err()
-    );
+    assert!(mutate(&mut c, &json!({"intent":"delete_category","id":"expense-8"})).is_err());
+    assert!(mutate(&mut c, &json!({"intent":"category","kind":"expense","name":"other"})).is_err());
 }
 #[test]
 fn category_overflow_rolls_back() {
     let mut c = db();
-    mutate(&mut c, &entry()).unwrap();
+    mutate(&mut c, &transaction_form()).unwrap();
     c.execute_batch("INSERT INTO budgets(id,month,category,amount) VALUES ('x','2026-10','Food & dining',999999999999),('y','2026-10','Other',1)").unwrap();
-    assert!(
-        mutate(
-            &mut c,
-            &json!({"intent":"delete_category","id":"expense-0"})
-        )
-        .is_err()
-    );
+    assert!(mutate(&mut c, &json!({"intent":"delete_category","id":"expense-0"})).is_err());
     assert_eq!(
-        record(&c, "entries", &id(&c, "entries")).unwrap()["category"],
+        record(&c, "transactions", &id(&c, "transactions")).unwrap()["category"],
         "Food & dining"
     );
     assert_eq!(count(&c, "budgets"), 2);
@@ -334,37 +260,34 @@ fn subscription_calendar() {
 #[test]
 fn subscription_history_prevents_rebilling() {
     let mut c = db();
-    c.execute_batch("INSERT INTO subscriptions(id,name,amount,category,wallet_id,recurrence,next_due,status) VALUES ('s','Music',1000,'Entertainment','a','monthly','2024-01-31','active')").unwrap();
+    c.execute_batch("INSERT INTO subscriptions(id,name,amount,category,account_id,recurrence,next_due,status) VALUES ('s','Music',1000,'Entertainment','a','monthly','2024-01-31','active')").unwrap();
     assert_eq!(bill(&mut c, "2024-03-31").unwrap(), 3);
     assert_eq!(bill(&mut c, "2024-03-31").unwrap(), 0);
     assert_eq!(
-        query(&c, "SELECT date FROM entries ORDER BY date", []).unwrap(),
+        query(&c, "SELECT date FROM transactions ORDER BY date", []).unwrap(),
         vec![
             json!({"date":"2024-01-31"}),
             json!({"date":"2024-02-29"}),
             json!({"date":"2024-03-31"})
         ]
     );
-    c.execute_batch("DELETE FROM entries;UPDATE subscriptions SET next_due='2024-01-31'")
+    c.execute_batch("DELETE FROM transactions;UPDATE subscriptions SET next_due='2024-01-31'")
         .unwrap();
     assert_eq!(bill(&mut c, "2024-03-31").unwrap(), 0);
-    assert_eq!(count(&c, "entries"), 0);
+    assert_eq!(count(&c, "transactions"), 0);
 }
 #[test]
 fn billing_failure_rolls_back() {
     let mut c = db();
-    c.execute_batch("INSERT INTO subscriptions(id,name,amount,wallet_id,recurrence,next_due,status) VALUES ('s','Music',1000,'a','weekly','2026-10-01','active');CREATE TRIGGER fail_charge BEFORE INSERT ON subscription_charges BEGIN SELECT RAISE(ABORT,'test failure');END;").unwrap();
+    c.execute_batch("INSERT INTO subscriptions(id,name,amount,account_id,recurrence,next_due,status) VALUES ('s','Music',1000,'a','weekly','2026-10-01','active');CREATE TRIGGER fail_charge BEFORE INSERT ON subscription_charges BEGIN SELECT RAISE(ABORT,'test failure');END;").unwrap();
     assert!(bill(&mut c, "2026-10-15").is_err());
-    assert_eq!(count(&c, "entries"), 0);
-    assert_eq!(
-        record(&c, "subscriptions", "s").unwrap()["next_due"],
-        "2026-10-01"
-    );
+    assert_eq!(count(&c, "transactions"), 0);
+    assert_eq!(record(&c, "subscriptions", "s").unwrap()["next_due"], "2026-10-01");
 }
 #[test]
 fn receipt_storage_replacement_cleanup_and_validation() {
     let mut c = db();
-    let mut f = entry();
+    let mut f = transaction_form();
     f["receipt"] =
         json!({"name":"../../invoice\r\n.pdf","mime":"text/html","bytes":b"%PDF-test".to_vec()});
     mutate(&mut c, &f).unwrap();
@@ -373,22 +296,22 @@ fn receipt_storage_replacement_cleanup_and_validation() {
     assert_eq!(a["mime"], "application/pdf");
     assert_eq!(a["bytes"], json!(b"%PDF-test".to_vec()));
     assert!(!field(&a, "filename").contains('/'));
-    f["id"] = json!(id(&c, "entries"));
+    f["id"] = json!(id(&c, "transactions"));
     f["receipt"] = json!({"name":"bad.pdf","bytes":[256]});
     assert!(mutate(&mut c, &f).is_err());
     assert!(asset(&c, "receipt", &rid).is_ok());
     f["receipt"] = Value::Null;
     f["remove_receipt"] = json!("on");
     mutate(&mut c, &f).unwrap();
-    assert_eq!(count(&c, "native_files"), 0);
+    assert_eq!(count(&c, "receipt_files"), 0);
     f["receipt"] = json!({"bytes":b"%PDF-test".to_vec()});
     mutate(&mut c, &f).unwrap();
     mutate(
         &mut c,
-        &json!({"intent":"delete_wallet","id":"a","policy":"delete","confirmation":"DELETE"}),
+        &json!({"intent":"delete_account","id":"a","policy":"delete","confirmation":"DELETE"}),
     )
     .unwrap();
-    assert_eq!(count(&c, "native_files"), 0);
+    assert_eq!(count(&c, "receipt_files"), 0);
     assert_eq!(count(&c, "receipts"), 0);
 }
 #[test]
@@ -396,18 +319,11 @@ fn cover_version_and_sniffing() {
     let mut c = db();
     let f = json!({"intent":"upload_cover","cover":{"name":"x.png","mime":"image/png","bytes":cover_image(2, 2, true)}});
     mutate(&mut c, &f).unwrap();
-    let v = one(&c, "SELECT version FROM workspace_cover", []).unwrap()["version"].clone();
-    mutate(
-        &mut c,
-        &json!({"intent":"position_cover","position":"72.5","version":v}),
-    )
-    .unwrap();
+    let v = one(&c, "SELECT version FROM ledger_cover", []).unwrap()["version"].clone();
+    mutate(&mut c, &json!({"intent":"position_cover","position":"72.5","version":v})).unwrap();
     assert!(
-        mutate(
-            &mut c,
-            &json!({"intent":"position_cover","position":"20","version":"stale"})
-        )
-        .is_err()
+        mutate(&mut c, &json!({"intent":"position_cover","position":"20","version":"stale"}))
+            .is_err()
     );
     let mut bad = f.clone();
     bad["cover"]["bytes"] = json!([60, 115, 118, 103, 62]);
@@ -425,30 +341,28 @@ fn csv_preview_duplicate_and_atomic_commit() {
     let mut f = json!({"intent":"preview_import","csv":CSV});
     let p = mutate(&mut c, &f).unwrap();
     assert_eq!(p["preview"][0]["duplicate"], false);
-    assert_eq!(count(&c, "entries"), 0);
+    assert_eq!(count(&c, "transactions"), 0);
     f["intent"] = json!("commit_import");
     f["policy"] = json!("skip");
     mutate(&mut c, &f).unwrap();
     mutate(&mut c, &f).unwrap();
-    assert_eq!(count(&c, "entries"), 1);
+    assert_eq!(count(&c, "transactions"), 1);
     f["policy"] = json!("reject");
     assert!(mutate(&mut c, &f).is_err());
-    c.execute_batch("DELETE FROM entries").unwrap();
-    mutate(&mut c, &entry()).unwrap();
+    c.execute_batch("DELETE FROM transactions").unwrap();
+    mutate(&mut c, &transaction_form()).unwrap();
     f["intent"] = json!("preview_import");
     assert_eq!(mutate(&mut c, &f).unwrap()["preview"][0]["duplicate"], true);
     f["intent"] = json!("commit_import");
     f["policy"] = json!("skip");
-    f["csv"] = json!(format!(
-        "{CSV}2026-10-02,expense,Bad,1.001,Everyday,,Food & dining,\n"
-    ));
+    f["csv"] = json!(format!("{CSV}2026-10-02,expense,Bad,1.001,Everyday,,Food & dining,\n"));
     assert!(mutate(&mut c, &f).is_err());
-    assert_eq!(count(&c, "entries"), 1);
+    assert_eq!(count(&c, "transactions"), 1);
 }
 #[test]
 fn export_quotes_and_formula_protection() {
     let mut c = db();
-    let mut f = entry();
+    let mut f = transaction_form();
     f["description"] = json!(" =SUM(A1)");
     f["notes"] = json!("A, \"quote\"\nand newline");
     mutate(&mut c, &f).unwrap();
@@ -461,11 +375,11 @@ fn export_quotes_and_formula_protection() {
 fn dashboard_pagination_filter_and_edit() {
     let mut c = db();
     for i in 0..25 {
-        let mut f = entry();
+        let mut f = transaction_form();
         f["description"] = json!(format!("Coffee {i}"));
         mutate(&mut c, &f).unwrap();
     }
-    let eid = id(&c, "entries");
+    let eid = id(&c, "transactions");
     let d=dashboard(&mut c,&json!({"month":"2026-10","view":"expenses","page":"999","sort":"amount","dir":"asc","edit":eid})).unwrap();
     assert_eq!(d["page"], 2);
     assert_eq!(d["count"], 25);
@@ -481,27 +395,29 @@ fn reset_and_demo() {
     let mut c = Connection::open_in_memory().unwrap();
     initialize(&c).unwrap();
     mutate(&mut c, &json!({"intent":"demo"})).unwrap();
-    assert_eq!(count(&c, "entries"), 8);
-    assert_eq!(count(&c, "wallets"), 3);
+    assert_eq!(count(&c, "transactions"), 8);
+    assert_eq!(count(&c, "accounts"), 3);
     assert!(mutate(&mut c, &json!({"intent":"demo"})).is_err());
-    assert!(mutate(&mut c, &json!({"intent":"reset","confirmation":"wrong"})).is_err());
-    mutate(&mut c, &json!({"intent":"reset","confirmation":"RESET"})).unwrap();
-    assert_eq!(count(&c, "entries"), 0);
+    assert!(mutate(&mut c, &json!({"intent":"reset_ledger","confirmation":"wrong"})).is_err());
+    mutate(&mut c, &json!({"intent":"reset_ledger","confirmation":"RESET"})).unwrap();
+    assert_eq!(count(&c, "transactions"), 0);
     assert_eq!(count(&c, "categories"), 14);
 }
 
 // Compatibility adapter only for existing behavioral fixtures.
 fn mutate(c: &mut Connection, f: &Value) -> R<Value> {
     let operation = match field(f, "intent") {
-        "wallet" => accounts::save_account_operation as fn(&Connection, &Value) -> R<Value>,
-        "adjust_wallet" => {
+        "account" => accounts::save_account_operation as fn(&Connection, &Value) -> R<Value>,
+        "adjust_account" => {
             accounts::adjust_account_operation as fn(&Connection, &Value) -> R<Value>
         }
-        "delete_wallet" => {
+        "delete_account" => {
             accounts::delete_account_operation as fn(&Connection, &Value) -> R<Value>
         }
-        "entry" => transactions::save_transaction_operation as fn(&Connection, &Value) -> R<Value>,
-        "delete_entry" => {
+        "transaction" => {
+            transactions::save_transaction_operation as fn(&Connection, &Value) -> R<Value>
+        }
+        "delete_transaction" => {
             transactions::delete_transaction_operation as fn(&Connection, &Value) -> R<Value>
         }
         "budget" => budgets::save_budget_operation as fn(&Connection, &Value) -> R<Value>,
@@ -518,7 +434,9 @@ fn mutate(c: &mut Connection, f: &Value) -> R<Value> {
         "delete_contribution" => {
             goals::delete_contribution_operation as fn(&Connection, &Value) -> R<Value>
         }
-        "reset" => maintenance::reset_workspace_operation as fn(&Connection, &Value) -> R<Value>,
+        "reset_ledger" => {
+            maintenance::reset_ledger_operation as fn(&Connection, &Value) -> R<Value>
+        }
         "demo" => maintenance::seed_demo_operation as fn(&Connection, &Value) -> R<Value>,
         "upload_cover" => files::upload_cover_operation as fn(&Connection, &Value) -> R<Value>,
         "remove_cover" => files::remove_cover_operation as fn(&Connection, &Value) -> R<Value>,
@@ -538,26 +456,26 @@ fn fixed_feature_operations_ignore_supplied_intent() {
     // These are the exact operation callbacks bound by the IPC commands.
     transaction(
         &mut c,
-        &json!({"intent":"reset","name":"New account","opening":"12.34"}),
+        &json!({"intent":"reset_ledger","name":"New account","opening":"12.34"}),
         accounts::save_account_operation,
     )
     .unwrap();
-    assert_eq!(count(&c, "wallets"), 3);
+    assert_eq!(count(&c, "accounts"), 3);
     transaction(
         &mut c,
-        &json!({"intent":"delete_wallet","id":"a","balance":"200"}),
+        &json!({"intent":"delete_account","id":"a","balance":"200"}),
         accounts::adjust_account_operation,
     )
     .unwrap();
-    assert_eq!(record(&c, "wallets", "a").unwrap()["opening"], 20000);
-    let mut f = entry();
-    f["intent"] = json!("reset");
+    assert_eq!(record(&c, "accounts", "a").unwrap()["opening"], 20000);
+    let mut f = transaction_form();
+    f["intent"] = json!("reset_ledger");
     transaction(&mut c, &f, transactions::save_transaction_operation).unwrap();
-    assert_eq!(count(&c, "entries"), 1);
-    let entry_id = id(&c, "entries");
+    assert_eq!(count(&c, "transactions"), 1);
+    let transaction_id = id(&c, "transactions");
     transaction(
         &mut c,
-        &json!({"id":entry_id,"intent":"entry"}),
+        &json!({"id":transaction_id,"intent":"transaction"}),
         transactions::delete_transaction_operation,
     )
     .unwrap();
@@ -568,24 +486,16 @@ fn fixed_cover_operations_cannot_be_redirected() {
     let mut c = db();
     let f = json!({"intent":"remove_cover","cover":{"bytes":cover_image(2, 2, false)}});
     transaction(&mut c, &f, files::upload_cover_operation).unwrap();
-    let version = one(&c, "SELECT version FROM workspace_cover", []).unwrap()["version"].clone();
+    let version = one(&c, "SELECT version FROM ledger_cover", []).unwrap()["version"].clone();
     transaction(
         &mut c,
         &json!({"intent":"remove_cover","position":"75","version":version}),
         files::position_cover_operation,
     )
     .unwrap();
-    assert_eq!(
-        one(&c, "SELECT position FROM workspace_cover", []).unwrap()["position"],
-        75.0
-    );
-    transaction(
-        &mut c,
-        &json!({"intent":"upload_cover"}),
-        files::remove_cover_operation,
-    )
-    .unwrap();
-    assert_eq!(count(&c, "workspace_cover"), 0);
+    assert_eq!(one(&c, "SELECT position FROM ledger_cover", []).unwrap()["position"], 75.0);
+    transaction(&mut c, &json!({"intent":"upload_cover"}), files::remove_cover_operation).unwrap();
+    assert_eq!(count(&c, "ledger_cover"), 0);
 }
 
 #[test]
@@ -598,21 +508,21 @@ fn fixed_import_operations_cannot_be_redirected() {
     )
     .unwrap();
     assert_eq!(preview["preview"][0]["duplicate"], false);
-    assert_eq!(count(&c, "entries"), 0);
+    assert_eq!(count(&c, "transactions"), 0);
     transaction(
         &mut c,
         &json!({"intent":"preview_import","csv":CSV,"policy":"skip"}),
         imports::commit_import_operation,
     )
     .unwrap();
-    assert_eq!(count(&c, "entries"), 1);
+    assert_eq!(count(&c, "transactions"), 1);
     assert!(transaction(&mut c, &Value::Null, imports::preview_import_operation).is_err());
 }
 
 #[test]
 fn fixed_operations_work_without_intent() {
     let mut c = db();
-    let mut f = entry();
+    let mut f = transaction_form();
     f.as_object_mut().unwrap().remove("intent");
     transaction(&mut c, &f, transactions::save_transaction_operation).unwrap();
     transaction(
@@ -644,15 +554,81 @@ fn fixed_operations_work_without_intent() {
     transaction(
         &mut c,
         &json!({"confirmation":"RESET","intent":"demo"}),
-        maintenance::reset_workspace_operation,
+        maintenance::reset_ledger_operation,
     )
     .unwrap();
-    assert_eq!(count(&c, "wallets"), 0);
+    assert_eq!(count(&c, "accounts"), 0);
     transaction(
         &mut c,
-        &json!({"intent":"reset","confirmation":"RESET"}),
+        &json!({"intent":"reset_ledger","confirmation":"RESET"}),
         maintenance::seed_demo_operation,
     )
     .unwrap();
-    assert_eq!(count(&c, "wallets"), 3);
+    assert_eq!(count(&c, "accounts"), 3);
+}
+
+#[test]
+fn renamed_schema_preserves_constraints_and_currency_default() {
+    let c = db();
+    for table in ["accounts", "transactions", "ledger_cover", "receipt_files"] {
+        assert!(
+            !one(&c, "SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table])
+                .unwrap()
+                .is_null()
+        );
+    }
+    for table in ["wallets", "entries", "workspace_cover", "native_files"] {
+        assert!(
+            one(&c, "SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table])
+                .unwrap()
+                .is_null()
+        );
+    }
+    assert_eq!(record(&c, "accounts", "a").unwrap()["currency"], "USD");
+    c.execute("UPDATE accounts SET currency='EUR' WHERE id='a'", []).unwrap();
+    for sql in [
+        "UPDATE accounts SET archived=2 WHERE id='a'",
+        "UPDATE accounts SET opening=1000000000000 WHERE id='a'",
+        "INSERT INTO transactions(id,kind,date,description,amount,account_id,category) VALUES ('bad','expense','2026-10-01','Bad',1,'missing','Other')",
+        "INSERT INTO transactions(id,kind,date,description,amount,account_id,destination_account_id,category) VALUES ('bad','transfer','2026-10-01','Bad',1,'a','a','Transfer')",
+        "INSERT INTO ledger_cover(id,version,mime,image,position) VALUES (1,'v','image/png',x'00',101)",
+        "INSERT INTO receipt_files(id,bytes) VALUES ('missing',x'00')",
+    ] {
+        assert!(c.execute_batch(sql).is_err(), "{sql}");
+    }
+    let columns = |table: &str| {
+        query(&c, &format!("PRAGMA table_info({table})"), [])
+            .unwrap()
+            .into_iter()
+            .map(|v| field(&v, "name").to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert!(columns("transactions").contains(&"account_id".into()));
+    assert!(columns("transactions").contains(&"destination_account_id".into()));
+    assert!(columns("subscriptions").contains(&"account_id".into()));
+    for table in ["receipts", "subscription_charges"] {
+        assert!(columns(table).contains(&"transaction_id".into()));
+    }
+    assert!(query(&c, "PRAGMA foreign_key_check", []).unwrap().is_empty());
+}
+
+#[test]
+fn renamed_dashboard_and_import_json_contract() {
+    let mut c = db();
+    mutate(&mut c, &transaction_form()).unwrap();
+    let d = dashboard(&mut c, &json!({"month":"2026-10"})).unwrap();
+    assert!(d.get("wallets").is_none());
+    assert_eq!(d["accounts"].as_array().unwrap().len(), 2);
+    let row = &d["transactions"][0];
+    assert_eq!(row["account_id"], "a");
+    assert!(row.get("destination_account_id").is_some());
+    assert!(row.get("wallet_id").is_none());
+    assert!(row.get("destination_id").is_none());
+    let preview =
+        transaction(&mut c, &json!({"csv":CSV}), imports::preview_import_operation).unwrap();
+    let value = &preview["preview"][0]["value"];
+    assert_eq!(value["account_id"], "a");
+    assert!(value.get("destination_account_id").is_some());
+    assert!(value.get("walletId").is_none());
+    assert_eq!(preview["preview"][0]["duplicate"], true);
 }

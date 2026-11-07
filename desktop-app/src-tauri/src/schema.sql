@@ -1,10 +1,10 @@
-CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 80), opening INTEGER NOT NULL CHECK(typeof(opening)='integer' AND abs(opening)<=999999999999), currency TEXT NOT NULL DEFAULT 'SGD' CHECK(currency='SGD'), archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1)));
-CREATE TABLE IF NOT EXISTS entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('income','expense','transfer')), date TEXT NOT NULL CHECK(date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), description TEXT NOT NULL CHECK(length(description) BETWEEN 1 AND 200), amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), wallet_id TEXT NOT NULL, destination_id TEXT, category TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', fingerprint TEXT, FOREIGN KEY(wallet_id) REFERENCES wallets(id), FOREIGN KEY(destination_id) REFERENCES wallets(id), CHECK((kind='transfer' AND destination_id IS NOT NULL AND destination_id<>wallet_id AND category='Transfer') OR (kind<>'transfer' AND destination_id IS NULL)), UNIQUE(id,fingerprint));
+CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 80), opening INTEGER NOT NULL CHECK(typeof(opening)='integer' AND abs(opening)<=999999999999), currency TEXT NOT NULL DEFAULT 'USD', archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1)));
+CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('income','expense','transfer')), date TEXT NOT NULL CHECK(date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), description TEXT NOT NULL CHECK(length(description) BETWEEN 1 AND 200), amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), account_id TEXT NOT NULL, destination_account_id TEXT, category TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', fingerprint TEXT, FOREIGN KEY(account_id) REFERENCES accounts(id), FOREIGN KEY(destination_account_id) REFERENCES accounts(id), CHECK((kind='transfer' AND destination_account_id IS NOT NULL AND destination_account_id<>account_id AND category='Transfer') OR (kind<>'transfer' AND destination_account_id IS NULL)), UNIQUE(id,fingerprint));
 CREATE TABLE IF NOT EXISTS budgets (id TEXT PRIMARY KEY, month TEXT NOT NULL, category TEXT NOT NULL, amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), UNIQUE(month,category));
-CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, name TEXT NOT NULL, amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), wallet_id TEXT NOT NULL, recurrence TEXT NOT NULL CHECK(recurrence IN ('weekly','monthly','yearly')), next_due TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('active','paused','cancelled')), FOREIGN KEY(wallet_id) REFERENCES wallets(id));
+CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, name TEXT NOT NULL, amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), account_id TEXT NOT NULL, recurrence TEXT NOT NULL CHECK(recurrence IN ('weekly','monthly','yearly')), next_due TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('active','paused','cancelled')), FOREIGN KEY(account_id) REFERENCES accounts(id));
 CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, name TEXT NOT NULL, amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), target_date TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS contributions (id TEXT PRIMARY KEY, goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE, amount INTEGER NOT NULL CHECK(typeof(amount)='integer' AND amount>0 AND amount<=999999999999), date TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS receipts (id TEXT PRIMARY KEY, entry_id TEXT NOT NULL UNIQUE REFERENCES entries(id) ON DELETE CASCADE, filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS receipts (id TEXT PRIMARY KEY, transaction_id TEXT NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE, filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL);
 ALTER TABLE subscriptions ADD COLUMN billing_anchor TEXT;
 UPDATE subscriptions SET billing_anchor=next_due;
 
@@ -12,7 +12,7 @@ UPDATE subscriptions SET billing_anchor=next_due;
 CREATE TABLE subscription_charges (
   subscription_id TEXT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
   due_date TEXT NOT NULL,
-  entry_id TEXT REFERENCES entries(id) ON DELETE SET NULL,
+  transaction_id TEXT REFERENCES transactions(id) ON DELETE SET NULL,
   PRIMARY KEY(subscription_id, due_date)
 );
 
@@ -31,10 +31,10 @@ INSERT INTO categories VALUES ('income-1','income','Freelance');
 INSERT INTO categories VALUES ('income-2','income','Interest');
 INSERT INTO categories VALUES ('income-3','income','Gifts');
 INSERT INTO categories VALUES ('income-4','income','Other');
-INSERT OR IGNORE INTO categories SELECT 'legacy-' || kind || '-' || category,kind,category FROM entries WHERE kind IN ('income','expense');
+INSERT OR IGNORE INTO categories SELECT 'legacy-' || kind || '-' || category,kind,category FROM transactions WHERE kind IN ('income','expense');
 INSERT OR IGNORE INTO categories SELECT 'legacy-budget-' || category,'expense',category FROM budgets;
 
-CREATE TABLE workspace_cover (
+CREATE TABLE ledger_cover (
   id INTEGER PRIMARY KEY CHECK(id=1),
   version TEXT NOT NULL,
   mime TEXT NOT NULL CHECK(mime IN ('image/png','image/jpeg','image/webp')),

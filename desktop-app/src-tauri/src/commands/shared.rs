@@ -16,10 +16,7 @@ pub(super) fn field<'a>(v: &'a Value, key: &str) -> &'a str {
 pub(super) fn text(v: &Value, key: &str, max: usize) -> R<String> {
     let s = field(v, key).trim();
     if s.is_empty() || s.encode_utf16().count() > max {
-        return Err(format!(
-            "Enter {} (up to {max} characters).",
-            key.replace('_', " ")
-        ));
+        return Err(format!("Enter {} (up to {max} characters).", key.replace('_', " ")));
     }
     Ok(s.to_owned())
 }
@@ -41,10 +38,7 @@ pub(super) fn minor(s: &str) -> R<i64> {
     }
     let whole = parts[0].parse::<i64>().map_err(err)?;
     let fraction = if parts.len() == 2 {
-        format!("{:<02}", parts[1])
-            .replace(' ', "0")
-            .parse::<i64>()
-            .map_err(err)?
+        format!("{:<02}", parts[1]).replace(' ', "0").parse::<i64>().map_err(err)?
     } else {
         0
     };
@@ -56,19 +50,10 @@ pub(super) fn minor(s: &str) -> R<i64> {
 }
 pub(super) fn positive(v: &Value) -> R<i64> {
     let n = minor(&text(v, "amount", 200)?)?;
-    if n <= 0 {
-        Err("Amount must be greater than zero.".into())
-    } else {
-        Ok(n)
-    }
+    if n <= 0 { Err("Amount must be greater than zero.".into()) } else { Ok(n) }
 }
 pub(super) fn decimal(n: i64) -> String {
-    format!(
-        "{}{}.{:02}",
-        if n < 0 { "-" } else { "" },
-        n.abs() / 100,
-        n.abs() % 100
-    )
+    format!("{}{}.{:02}", if n < 0 { "-" } else { "" }, n.abs() / 100, n.abs() % 100)
 }
 pub(super) fn date(s: &str) -> R<NaiveDate> {
     let d =
@@ -120,11 +105,7 @@ pub(super) fn one<P: Params>(c: &Connection, sql: &str, p: P) -> R<Value> {
 }
 pub(super) fn record(c: &Connection, table: &str, id: &str) -> R<Value> {
     let v = one(c, &format!("SELECT * FROM {table} WHERE id=?"), [id])?;
-    if v.is_null() {
-        Err("Record not found.".into())
-    } else {
-        Ok(v)
-    }
+    if v.is_null() { Err("Record not found.".into()) } else { Ok(v) }
 }
 pub(super) fn exec<P: Params>(c: &Connection, sql: &str, p: P) -> R<usize> {
     c.execute(sql, p).map_err(err)
@@ -168,32 +149,27 @@ pub(super) fn seed(c: &Connection) -> R<()> {
     Ok(())
 }
 
-/// Initializes a fresh database or attaches native file storage to a migrated legacy workspace.
-/// Existing legacy databases must already have migrations 0001–0008 applied.
+/// Initializes a fresh ledger or attaches receipt storage to an already migrated ledger.
+/// Legacy migrations belong to Storage and must run before this function.
 pub(crate) fn initialize(conn: &Connection) -> R<()> {
-    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")
-        .map_err(err)?;
+    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;").map_err(err)?;
     let exists: bool = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='wallets')",
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='accounts')",
             [],
             |r| r.get(0),
         )
         .map_err(err)?;
-    conn.execute_batch("SAVEPOINT finance_initialize")
-        .map_err(err)?;
+    conn.execute_batch("SAVEPOINT finance_initialize").map_err(err)?;
     let result = (|| {
         if !exists {
-            conn.execute_batch(include_str!("../schema.sql"))
-                .map_err(err)?;
+            conn.execute_batch(include_str!("../schema.sql")).map_err(err)?;
         }
-        conn.execute_batch("CREATE TABLE IF NOT EXISTS native_files (id TEXT PRIMARY KEY REFERENCES receipts(id) ON DELETE CASCADE, bytes BLOB NOT NULL CHECK(typeof(bytes)='blob')); CREATE INDEX IF NOT EXISTS entries_month ON entries(date,kind); CREATE INDEX IF NOT EXISTS entries_wallet ON entries(wallet_id); CREATE INDEX IF NOT EXISTS entries_destination ON entries(destination_id);").map_err(err)?;
+        conn.execute_batch("CREATE TABLE IF NOT EXISTS receipt_files (id TEXT PRIMARY KEY REFERENCES receipts(id) ON DELETE CASCADE, bytes BLOB NOT NULL CHECK(typeof(bytes)='blob')); CREATE INDEX IF NOT EXISTS transactions_month ON transactions(date,kind); CREATE INDEX IF NOT EXISTS transactions_account ON transactions(account_id); CREATE INDEX IF NOT EXISTS transactions_destination ON transactions(destination_account_id);").map_err(err)?;
         Ok(())
     })();
     match result {
-        Ok(()) => conn
-            .execute_batch("RELEASE finance_initialize")
-            .map_err(err),
+        Ok(()) => conn.execute_batch("RELEASE finance_initialize").map_err(err),
         Err(e) => {
             let _ =
                 conn.execute_batch("ROLLBACK TO finance_initialize; RELEASE finance_initialize");
@@ -205,13 +181,11 @@ pub(crate) fn initialize(conn: &Connection) -> R<()> {
 pub(super) fn message(s: &str) -> Value {
     json!({"message":s})
 }
-pub(super) type NativeState<'a> = tauri::State<'a, std::sync::Mutex<crate::workspace::Workspace>>;
+pub(super) type NativeState<'a> = tauri::State<'a, std::sync::Mutex<crate::storage::Storage>>;
 pub(super) fn locked<'a>(
     state: &'a NativeState<'_>,
-) -> R<std::sync::MutexGuard<'a, crate::workspace::Workspace>> {
-    state
-        .lock()
-        .map_err(|_| "Workspace is unavailable. Restart Folio.".to_owned())
+) -> R<std::sync::MutexGuard<'a, crate::storage::Storage>> {
+    state.lock().map_err(|_| "Storage is unavailable. Restart Folio.".to_owned())
 }
 /// Validation and writes share an immediate transaction; any error rolls back.
 pub(super) fn transaction(
@@ -222,9 +196,8 @@ pub(super) fn transaction(
     if !form.is_object() {
         return Err("Expected a JSON form object.".into());
     }
-    let tx = conn
-        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-        .map_err(err)?;
+    let tx =
+        conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).map_err(err)?;
     let result = operation(&tx, form)?;
     tx.commit().map_err(err)?;
     Ok(result)

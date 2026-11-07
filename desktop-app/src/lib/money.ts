@@ -14,7 +14,7 @@ export function minor(value: string): number {
   return negative ? -result : result;
 }
 
-export const money = (value: number, language = 'en-SG', currency = 'SGD') => {
+export const money = (value: number, language = 'en-SG', currency = 'USD') => {
   if (!Number.isSafeInteger(value)) {
     throw new Error('Balance exceeds the supported integer range.');
   }

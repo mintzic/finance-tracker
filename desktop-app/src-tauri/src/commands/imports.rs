@@ -1,24 +1,16 @@
 use super::{files, ledger::*, shared::*};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-const HEADERS: [&str; 8] = [
-    "date",
-    "kind",
-    "description",
-    "amount",
-    "account",
-    "destination",
-    "category",
-    "notes",
-];
+const HEADERS: [&str; 8] =
+    ["date", "kind", "description", "amount", "account", "destination", "category", "notes"];
 fn fingerprint(v: &Value) -> R<String> {
     let bytes = serde_json::to_vec(&json!([
         v["date"],
         v["kind"],
         v["amount"],
         field(v, "description").trim().to_lowercase(),
-        v["walletId"],
-        v["destinationId"],
+        v["account_id"],
+        v["destination_account_id"],
         v["category"],
         v["notes"]
     ]))
@@ -36,18 +28,13 @@ fn preview(c: &Connection, s: &str) -> R<Vec<Value>> {
     if !HEADERS.iter().all(|k| headers.iter().any(|h| h == *k)) {
         return Err(format!("Required headers: {}", HEADERS.join(",")));
     }
-    let rows = reader
-        .records()
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(err)?;
+    let rows = reader.records().collect::<Result<Vec<_>, _>>().map_err(err)?;
     if rows.is_empty() || rows.len() > 1000 {
         return Err("Import between 1 and 1,000 rows at a time.".into());
     }
-    let wallets = query(c, "SELECT id,name FROM wallets", [])?;
+    let accounts = query(c, "SELECT id,name FROM accounts", [])?;
     let mut seen = HashSet::new();
-    for mut v in query(c, "SELECT * FROM entries", [])? {
-        v["walletId"] = v["wallet_id"].clone();
-        v["destinationId"] = v["destination_id"].clone();
+    for v in query(c, "SELECT * FROM transactions", [])? {
         seen.insert(fingerprint(&v)?);
     }
     let mut out = Vec::new();
@@ -56,11 +43,7 @@ fn preview(c: &Connection, s: &str) -> R<Vec<Value>> {
             return Err("CSV record exceeds 10,000 characters.".into());
         }
         let get = |key: &str| {
-            headers
-                .iter()
-                .position(|h| h == key)
-                .and_then(|i| row.get(i))
-                .unwrap_or("")
+            headers.iter().position(|h| h == key).and_then(|i| row.get(i)).unwrap_or("")
         };
         let parsed = (|| {
             let mut f = Map::new();
@@ -68,30 +51,24 @@ fn preview(c: &Connection, s: &str) -> R<Vec<Value>> {
                 f.insert(k.into(), json!(get(k)));
             }
             for (csv_key, form_key, error) in [
-                (
-                    "account",
-                    "wallet_id",
-                    "Account name must match exactly one account.",
-                ),
+                ("account", "account_id", "Account name must match exactly one account."),
                 (
                     "destination",
-                    "destination_id",
+                    "destination_account_id",
                     "Destination must match exactly one account.",
                 ),
             ] {
                 if csv_key == "destination" && get("kind") != "transfer" {
                     continue;
                 }
-                let matching: Vec<_> = wallets
-                    .iter()
-                    .filter(|w| field(w, "name") == get(csv_key))
-                    .collect();
+                let matching: Vec<_> =
+                    accounts.iter().filter(|w| field(w, "name") == get(csv_key)).collect();
                 if matching.len() != 1 {
                     return Err(error.to_string());
                 }
                 f.insert(form_key.into(), matching[0]["id"].clone());
             }
-            parse_entry(c, &Value::Object(f))
+            parse_transaction(c, &Value::Object(f))
         })();
         out.push(match parsed{Ok(v)=>{let duplicate=!seen.insert(fingerprint(&v)?);json!({"line":index+2,"description":get("description"),"duplicate":duplicate,"value":v})},Err(e)=>json!({"line":index+2,"description":get("description"),"duplicate":false,"error":e})});
     }
@@ -124,7 +101,7 @@ pub(super) fn import(c: &Connection, f: &Value, preview_only: bool) -> R<Value> 
         if r["duplicate"] == true {
             continue;
         }
-        write_entry(c, &r["value"], false)?;
+        write_transaction(c, &r["value"], false)?;
         imported += 1;
     }
     Ok(
@@ -133,23 +110,19 @@ pub(super) fn import(c: &Connection, f: &Value, preview_only: bool) -> R<Value> 
 }
 fn cell(s: &str) -> String {
     let trimmed = s.trim_start();
-    let protected = if trimmed.starts_with(['=', '+', '@', '-']) {
-        format!("'{s}")
-    } else {
-        s.to_string()
-    };
+    let protected =
+        if trimmed.starts_with(['=', '+', '@', '-']) { format!("'{s}") } else { s.to_string() };
     format!("\"{}\"", protected.replace('"', "\"\""))
 }
 /// Exports all transactions, billing due subscriptions first, as in the legacy export.
 /// A savepoint supports both standalone callers and callers already in a transaction.
 pub(super) fn write_csv(conn: &Connection) -> R<String> {
-    conn.execute_batch("SAVEPOINT finance_export")
-        .map_err(err)?;
+    conn.execute_batch("SAVEPOINT finance_export").map_err(err)?;
     let result = (|| {
         deduct(conn, &today())?;
         let rows = query(
             conn,
-            "SELECT e.*,w.name account,d.name destination FROM entries e JOIN wallets w ON w.id=e.wallet_id LEFT JOIN wallets d ON d.id=e.destination_id ORDER BY e.date,e.id",
+            "SELECT e.*,w.name account,d.name destination FROM transactions e JOIN accounts w ON w.id=e.account_id LEFT JOIN accounts d ON d.id=e.destination_account_id ORDER BY e.date,e.id",
             [],
         )?;
         let mut s = HEADERS.join(",") + "\r\n";
@@ -157,13 +130,7 @@ pub(super) fn write_csv(conn: &Connection) -> R<String> {
             let amount = decimal(row["amount"].as_i64().ok_or("Invalid amount.")?);
             let cells = HEADERS
                 .iter()
-                .map(|k| {
-                    cell(if *k == "amount" {
-                        &amount
-                    } else {
-                        field(&row, k)
-                    })
-                })
+                .map(|k| cell(if *k == "amount" { &amount } else { field(&row, k) }))
                 .collect::<Vec<_>>();
             s.push_str(&cells.join(","));
             s.push_str("\r\n");
@@ -188,12 +155,8 @@ pub(super) fn preview_import_operation(c: &Connection, f: &Value) -> R<Value> {
 
 #[tauri::command]
 pub fn preview_import(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(
-        &mut workspace.connection()?,
-        &form,
-        preview_import_operation,
-    )
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, preview_import_operation)
 }
 
 pub(super) fn commit_import_operation(c: &Connection, f: &Value) -> R<Value> {
@@ -202,20 +165,20 @@ pub(super) fn commit_import_operation(c: &Connection, f: &Value) -> R<Value> {
 
 #[tauri::command]
 pub fn commit_import(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, commit_import_operation)
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, commit_import_operation)
 }
 
 #[tauri::command]
 pub fn export_csv(state: NativeState<'_>) -> R<String> {
-    let workspace = locked(&state)?;
-    write_csv(&workspace.connection()?)
+    let storage = locked(&state)?;
+    write_csv(&storage.connection()?)
 }
 #[tauri::command]
 pub fn import_legacy(state: NativeState<'_>, source: String, confirmation: String) -> R<Value> {
     if confirmation != "IMPORT" {
-        return Err("Type IMPORT to copy your old workspace.".into());
+        return Err("Type IMPORT to copy your old storage.".into());
     }
     locked(&state)?.import_legacy(&source)?;
-    Ok(json!({"message":"Existing workspace copied. The original files were not changed."}))
+    Ok(json!({"message":"Existing storage copied. The original files were not changed."}))
 }

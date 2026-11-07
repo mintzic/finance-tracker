@@ -5,8 +5,8 @@ pub(super) fn save_budget_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 #[tauri::command]
 pub fn save_budget(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, save_budget_operation)
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, save_budget_operation)
 }
 pub(super) fn delete_budget_operation(c: &Connection, f: &Value) -> R<Value> {
     let id = field(f, "id");
@@ -15,8 +15,8 @@ pub(super) fn delete_budget_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 #[tauri::command]
 pub fn delete_budget(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, delete_budget_operation)
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, delete_budget_operation)
 }
 fn write_budget(c: &Connection, f: &Value) -> R<()> {
     let id = field(f, "id");
@@ -40,11 +40,7 @@ fn write_budget(c: &Connection, f: &Value) -> R<()> {
                     "UPDATE budgets SET month=? WHERE id=? AND NOT EXISTS(SELECT 1 FROM budgets WHERE category=? AND month=?)",
                     params![&next[..7], id, cat, &next[..7]],
                 )?;
-                exec(
-                    c,
-                    "DELETE FROM budgets WHERE id=? AND month=?",
-                    params![id, month],
-                )?;
+                exec(c, "DELETE FROM budgets WHERE id=? AND month=?", params![id, month])?;
             }
         } else {
             exec(c, "DELETE FROM budgets WHERE id=?", [id])?;

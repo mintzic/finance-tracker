@@ -5,8 +5,8 @@ pub(super) fn save_category_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 #[tauri::command]
 pub fn save_category(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, save_category_operation)
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, save_category_operation)
 }
 pub(super) fn delete_category_operation(c: &Connection, f: &Value) -> R<Value> {
     write_category(c, f, true)?;
@@ -14,12 +14,8 @@ pub(super) fn delete_category_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 #[tauri::command]
 pub fn delete_category(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(
-        &mut workspace.connection()?,
-        &form,
-        delete_category_operation,
-    )
+    let storage = locked(&state)?;
+    transaction(&mut storage.connection()?, &form, delete_category_operation)
 }
 fn write_category(c: &Connection, f: &Value, deleting: bool) -> R<()> {
     let id = field(f, "id");
@@ -38,11 +34,7 @@ fn write_category(c: &Connection, f: &Value, deleting: bool) -> R<()> {
     if !["income", "expense"].contains(&kind) {
         return Err("Choose income or expense.".into());
     }
-    let name = if deleting {
-        "Other".to_string()
-    } else {
-        text(f, "name", 80)?
-    };
+    let name = if deleting { "Other".to_string() } else { text(f, "name", 80)? };
     if name.eq_ignore_ascii_case("transfer") {
         return Err("Transfer is reserved for transfers.".into());
     }
@@ -63,7 +55,7 @@ fn write_category(c: &Connection, f: &Value, deleting: bool) -> R<()> {
         let previous = field(&old, "name");
         exec(
             c,
-            "UPDATE entries SET category=?,fingerprint=NULL WHERE kind=? AND category=?",
+            "UPDATE transactions SET category=?,fingerprint=NULL WHERE kind=? AND category=?",
             params![name, kind, previous],
         )?;
         if kind == "expense" {
@@ -101,18 +93,10 @@ fn write_category(c: &Connection, f: &Value, deleting: bool) -> R<()> {
         if deleting {
             exec(c, "DELETE FROM categories WHERE id=?", [id])?;
         } else {
-            exec(
-                c,
-                "UPDATE categories SET name=? WHERE id=?",
-                params![name, id],
-            )?;
+            exec(c, "UPDATE categories SET name=? WHERE id=?", params![name, id])?;
         }
     } else {
-        exec(
-            c,
-            "INSERT INTO categories(id,kind,name) VALUES (?,?,?)",
-            params![uid(), kind, name],
-        )?;
+        exec(c, "INSERT INTO categories(id,kind,name) VALUES (?,?,?)", params![uid(), kind, name])?;
     }
     Ok(())
 }

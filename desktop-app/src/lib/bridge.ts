@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ActionResult, DashboardData, NativeAsset, ProfilesData, SerializedForm } from './types';
+import type { ActionResult, DashboardData, NativeAsset, SettingsData, SerializedForm } from './types';
 
 export const bridge = {
   dashboard: (params: Record<string, string>) => invoke<DashboardData>('dashboard', { params }),
@@ -21,12 +21,14 @@ export const bridge = {
   uploadCover: async (file: File) => invoke<ActionResult>('upload_cover', new Uint8Array(await file.arrayBuffer())),
   removeCover: (form: SerializedForm) => invoke<ActionResult>('remove_cover', { form }),
   positionCover: (form: SerializedForm) => invoke<ActionResult>('position_cover', { form }),
-  resetWorkspace: (form: SerializedForm) => invoke<ActionResult>('reset_workspace', { form }),
+  resetLedger: (form: SerializedForm) => invoke<ActionResult>('reset_ledger', { form }),
   seedDemo: (form: SerializedForm) => invoke<ActionResult>('seed_demo', { form }),
-  profiles: () => invoke<ProfilesData>('profiles', {}),
-  createProfile: (form: SerializedForm) => invoke<ActionResult>('create_profile', { form }),
-  updateProfile: (form: SerializedForm) => invoke<ActionResult>('update_profile', { form }),
-  switchProfile: (form: SerializedForm) => invoke<ActionResult>('switch_profile', { form }),
+  settings: () => invoke<SettingsData>('settings', {}),
+  updateProfile: (form: SerializedForm) => invoke<SettingsData>('update_profile', { form }),
+  createLedger: (form: SerializedForm) => invoke<SettingsData>('create_ledger', { form }),
+  updateLedger: (form: SerializedForm) => invoke<SettingsData>('update_ledger', { form }),
+  switchLedger: (form: SerializedForm) => invoke<SettingsData>('switch_ledger', { form }),
+  deleteLedger: (form: SerializedForm) => invoke<SettingsData>('delete_ledger', { form }),
   asset: (kind: 'receipt' | 'cover', id: string) => invoke<NativeAsset>('asset', { kind, id }),
   exportCsv: () => invoke<string>('export_csv', {}),
   importLegacy: (source: string, confirmation: string) => invoke<ActionResult>('import_legacy', { source, confirmation }),

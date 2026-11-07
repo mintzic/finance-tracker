@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router';
 import {
-  Wallet,
+  Landmark as AccountIcon,
   LayoutDashboard,
   ArrowDownLeft,
   ArrowUpRight,
@@ -28,7 +28,7 @@ import {
   Target,
   UserRound,
 } from 'lucide-react';
-import { useLoaderData, useActionData, redirect, type LoaderFunctionArgs, type ActionFunctionArgs } from 'react-router';
+import { useLoaderData, useActionData, type LoaderFunctionArgs, type ActionFunctionArgs } from 'react-router';
 import { bridge, serializeForm, errorMessage } from '@/lib/bridge';
 import type { DashboardData, ActionResult } from '@/lib/types';
 import { ExportLink } from '@/components/native-assets';
@@ -37,8 +37,8 @@ import { decimal, today } from '@/lib/money';
 import { Preferences, useMoney, translate } from '@/lib/preferences';
 import { TransactionTable } from '@/components/transaction-table';
 import { Button } from '@/components/ui/button';
-import { WorkspaceCover } from '@/components/workspace-cover';
-import type { Entry } from '@/lib/types';
+import { LedgerCover } from '@/components/ledger-cover';
+import type { Transaction } from '@/lib/types';
 import catIcon from '@/assets/icon.png';
 import { UserSettings } from '@/components/user-settings';
 
@@ -72,12 +72,6 @@ function DeferredTrendChart(props: ComponentProps<typeof TrendChart>) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DashboardData> {
-  const { profile } = await bridge.profiles();
-
-  if (!profile) {
-    throw redirect('/profiles');
-  }
-
   const params: Record<string, string> = {};
   new URL(request.url).searchParams.forEach((value, key) => {
     params[key] = value;
@@ -97,15 +91,15 @@ export async function action({ request }: ActionFunctionArgs): Promise<ActionRes
     }
     const form = await serializeForm(data);
     switch (form.intent) {
-      case 'wallet':
+      case 'account':
         return await bridge.saveAccount(form);
-      case 'adjust_wallet':
+      case 'adjust_account':
         return await bridge.adjustAccount(form);
-      case 'delete_wallet':
+      case 'delete_account':
         return await bridge.deleteAccount(form);
-      case 'entry':
+      case 'transaction':
         return await bridge.saveTransaction(form);
-      case 'delete_entry':
+      case 'delete_transaction':
         return await bridge.deleteTransaction(form);
       case 'budget':
         return await bridge.saveBudget(form);
@@ -132,8 +126,8 @@ export async function action({ request }: ActionFunctionArgs): Promise<ActionRes
         return await bridge.removeCover(form);
       case 'position_cover':
         return await bridge.positionCover(form);
-      case 'reset':
-        return await bridge.resetWorkspace(form);
+      case 'reset_ledger':
+        return await bridge.resetLedger(form);
       case 'demo':
         return await bridge.seedDemo(form);
       default:
@@ -158,7 +152,7 @@ export function headers() {
 
 const navigation = [
   ['dashboard', 'Overview', LayoutDashboard],
-  ['accounts', 'Accounts', Wallet],
+  ['accounts', 'Accounts', AccountIcon],
   ['income', 'Income', ArrowDownLeft],
   ['expenses', 'Expenses', ArrowUpRight],
   ['transfers', 'Transfers', ArrowLeftRight],
@@ -168,7 +162,7 @@ const navigation = [
   ['reports', 'Reports', ChartNoAxesCombined],
 ] as const;
 type Modal = {
-  type: 'entry' | 'wallet' | 'budget' | 'subscription' | 'goal' | 'contribute' | 'category' | 'categories' | 'reset';
+  type: 'transaction' | 'account' | 'budget' | 'subscription' | 'goal' | 'contribute' | 'category' | 'categories' | 'reset_ledger';
   value?: any;
 };
 
@@ -176,8 +170,8 @@ export default function Home() {
   const d = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   return (
-    <Preferences.Provider value={d.profile}>
-      <HomeContent loaderData={d} actionData={actionData} />
+    <Preferences.Provider value={{ language: d.profile.language, currency: d.ledger.currency }}>
+      <HomeContent key={d.ledger.id} loaderData={d} actionData={actionData} />
     </Preferences.Provider>
   );
 }
@@ -204,8 +198,8 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
     return '/?' + p;
   };
 
-  const edit = (entry: Entry) => setModal({ type: 'entry', value: entry });
-  const total = d.wallets.reduce((sum, w) => sum + w.balance, 0);
+  const edit = (transaction: Transaction) => setModal({ type: 'transaction', value: transaction });
+  const total = d.accounts.reduce((sum, w) => sum + w.balance, 0);
   const monthName = new Date(d.month + '-01T12:00:00').toLocaleDateString(d.profile.language, { month: 'long', year: 'numeric' });
   const title = navigation.find((n) => n[0] === d.section)?.[1] || 'Import transactions';
   const changePage = (page: number) => {
@@ -258,7 +252,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
           <div className="sidebar-footer">
             <span className="status-dot" />
             {d.profile.username}
-            <span>{d.profile.currency}</span>
+            <span>{d.ledger.currency}</span>
           </div>
         </div>
       </aside>
@@ -268,7 +262,9 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <button className="mobile-toggle icon-button" onClick={() => setMobile(true)} aria-label="Open navigation">
               <Menu size={20} />
             </button>
-            <span>{d.profile.username}</span>
+            <span>
+              {d.ledger.name} · {d.ledger.currency}
+            </span>
             <ChevronRight size={13} />
             <strong>{t(title)}</strong>
           </div>
@@ -282,7 +278,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <span>{d.profile.username}</span>
           </button>
         </header>
-        <WorkspaceCover profileId={d.profile.id} cover={d.cover} />
+        <LedgerCover key={d.ledger.id} ledgerId={d.ledger.id} cover={d.cover} />
         <main className="content">
           <div className="page-heading">
             <div>
@@ -321,7 +317,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                   <button>Apply</button>
                 </noscript>
               </Form>
-              <Button onClick={() => setModal({ type: 'entry' })} className="primary">
+              <Button onClick={() => setModal({ type: 'transaction' })} className="primary">
                 <Plus size={16} />
                 Add transaction
               </Button>
@@ -337,15 +333,18 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
               {actionData.message}
             </div>
           )}
-          {!d.wallets.length && (
+          {!d.accounts.length && (
             <div className="onboarding panel">
               <div>
                 <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
                 <h2>Make yourself at home.</h2>
                 <p className="muted">Create your first account, or explore with clearly labelled fictional demo data.</p>
+                <Link to="/settings" className="text-button">
+                  Import legacy data before entering financial records
+                </Link>
               </div>
               <div className="flex-actions">
-                <button className="primary" onClick={() => setModal({ type: 'wallet' })}>
+                <button className="primary" onClick={() => setModal({ type: 'account' })}>
                   Create account
                 </button>
                 <Form method="post">
@@ -361,8 +360,8 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <>
               <div className="section-heading">
                 <h2>
-                  <Wallet size={17} />
-                  Your accounts <span className="count">{d.wallets.filter((w) => !w.archived).length}</span>
+                  <AccountIcon size={17} />
+                  Your accounts <span className="count">{d.accounts.filter((w) => !w.archived).length}</span>
                 </h2>
                 <Link to={href('accounts')}>
                   Manage accounts <ArrowRight size={14} />
@@ -377,18 +376,18 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                   <strong className="balance">{money(total)}</strong>
                   <p>
                     <span className="status-dot" />
-                    All recorded balances · {d.profile.currency}
+                    All recorded balances · {d.ledger.currency}
                   </p>
                 </div>
-                {d.wallets
+                {d.accounts
                   .filter((w) => !w.archived)
-                  .map((wallet, i) => (
-                    <button key={wallet.id} className={`account-card account-${i % 3}`} onClick={() => setModal({ type: 'wallet', value: wallet })}>
+                  .map((account, i) => (
+                    <button key={account.id} className={`account-card account-${i % 3}`} onClick={() => setModal({ type: 'account', value: account })}>
                       <div className="card-label">
-                        <span>{wallet.name}</span>
+                        <span>{account.name}</span>
                         {i === 0 ? <Landmark size={18} /> : i === 1 ? <CreditCard size={18} /> : <Coins size={18} />}
                       </div>
-                      <strong className="balance">{money(wallet.balance)}</strong>
+                      <strong className="balance">{money(account.balance)}</strong>
                       <p>
                         Current balance <ArrowUpRight size={13} />
                       </p>
@@ -485,7 +484,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                       View all <ArrowRight size={13} />
                     </Link>
                   </div>
-                  <TransactionTable rows={rows as Entry[]} onEdit={edit} transfers={section === 'transfers'} />
+                  <TransactionTable rows={rows as Transaction[]} onEdit={edit} transfers={section === 'transfers'} />
                 </section>
               ))}
             </>
@@ -496,21 +495,21 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                 <h2>
                   Account balances <span className="muted small">All time, including future-dated records</span>
                 </h2>
-                <button className="text-button" onClick={() => setModal({ type: 'wallet' })}>
+                <button className="text-button" onClick={() => setModal({ type: 'account' })}>
                   <Plus size={15} />
                   New account
                 </button>
               </div>
               <div className="account-grid standalone">
-                {d.wallets.map((wallet, i) => (
-                  <button className={`account-card account-${i % 3}`} key={wallet.id} onClick={() => setModal({ type: 'wallet', value: wallet })}>
+                {d.accounts.map((account, i) => (
+                  <button className={`account-card account-${i % 3}`} key={account.id} onClick={() => setModal({ type: 'account', value: account })}>
                     <div className="card-label">
-                      <span>{wallet.name}</span>
+                      <span>{account.name}</span>
                       <Landmark size={18} />
                     </div>
-                    <strong className="balance">{money(wallet.balance)}</strong>
+                    <strong className="balance">{money(account.balance)}</strong>
                     <p>
-                      Opening {money(wallet.opening)} {wallet.archived ? '· Archived' : ''}
+                      Opening {money(account.opening)} {account.archived ? '· Archived' : ''}
                     </p>
                   </button>
                 ))}
@@ -562,7 +561,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                 </div>
                 <select name="account" defaultValue={d.account} aria-label="Filter account">
                   <option value="">All accounts</option>
-                  {d.wallets.map((w) => (
+                  {d.accounts.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
                     </option>
@@ -806,7 +805,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <section className="panel import-panel">
               <h2>Bring your records together.</h2>
               <p className="muted">
-                Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive {d.profile.currency}{' '}
+                Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive {d.ledger.currency}{' '}
                 decimals, without currency symbols or thousands separators.
               </p>
               <code className="csv-example">
@@ -898,18 +897,19 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <span>
               <span className="status-dot" />A little more clarity, every day.
             </span>
-            <span>{d.profile.currency} · Asia/Singapore</span>
+            <span>{d.ledger.currency} · Asia/Singapore</span>
           </footer>
         </main>
       </div>
       {settingsOpen && (
         <UserSettings
           profile={d.profile}
-          profiles={d.profiles}
+          ledger={d.ledger}
+          ledgers={d.ledgers}
           close={() => setSettingsOpen(false)}
           reset={() => {
             setSettingsOpen(false);
-            setModal({ type: 'reset' });
+            setModal({ type: 'reset_ledger' });
           }}
         />
       )}
@@ -1011,15 +1011,15 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
     dialog.current?.showModal();
   }, []);
   const names = {
-    entry: v.id ? 'Edit transaction' : 'A new transaction',
-    wallet: v.id ? 'Edit account' : 'A new account',
+    transaction: v.id ? 'Edit transaction' : 'A new transaction',
+    account: v.id ? 'Edit account' : 'A new account',
     budget: 'A little plan for the month',
     subscription: v.id ? 'Edit subscription' : 'A new subscription',
     goal: v.id ? 'Edit savings goal' : 'Something to save for',
     contribute: 'A little closer to your goal',
     categories: 'Categories',
     category: v.id ? 'Edit category' : 'New category',
-    reset: 'Reset workspace',
+    reset_ledger: 'Reset ledger',
   };
   const field = (label: string, name: string, type = 'text', value: any = '', required = true) => (
     <label>
@@ -1034,15 +1034,15 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
       />
     </label>
   );
-  const amount = (label = `Amount (${d.profile.currency})`, value = v.amount ? decimal(v.amount) : '') => field(label, 'amount', 'text', value);
-  const accounts = (name = 'wallet_id', label = 'Account', value = v.wallet_id || '') => (
+  const amount = (label = `Amount (${d.ledger.currency})`, value = v.amount ? decimal(v.amount) : '') => field(label, 'amount', 'text', value);
+  const accounts = (name = 'account_id', label = 'Account', value = v.account_id || '') => (
     <label>
       {label}
       <select name={name} defaultValue={value} required>
         <option value="" disabled>
           Select account
         </option>
-        {d.wallets
+        {d.accounts
           .filter((w) => !w.archived || w.id === value)
           .map((w) => (
             <option key={w.id} value={w.id}>
@@ -1091,11 +1091,11 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
         <Form method="post" encType="multipart/form-data" className="form-stack">
           <input type="hidden" name="intent" value={modal.type === 'contribute' ? 'contribute' : modal.type} />
           {v.id && modal.type !== 'contribute' && <input type="hidden" name="id" value={v.id} />}
-          {modal.type === 'reset' && (
+          {modal.type === 'reset_ledger' && (
             <>
               <p className="info-note">
-                This permanently clears all accounts, transactions, receipts, budgets, subscriptions, savings goals, and the cover. Categories return to
-                defaults. This cannot be undone.
+                This permanently clears only the active ledger’s accounts, transactions, receipts, budgets, subscriptions, savings goals, and the cover.
+                Categories return to defaults. Other ledgers are unaffected. This cannot be undone.
               </p>
               <ExportLink className="text-button">Export transactions first (CSV excludes receipts)</ExportLink>
               {field('Type RESET to confirm', 'confirmation')}
@@ -1114,7 +1114,7 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
               <p className="small muted">Renaming updates existing transactions and budgets.</p>
             </>
           )}
-          {modal.type === 'entry' && (
+          {modal.type === 'transaction' && (
             <>
               <label>
                 Type
@@ -1130,9 +1130,9 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
                 {field('Date (Singapore)', 'date', 'date', v.date || today())}
               </div>
               <div className="form-grid">
-                {accounts('wallet_id', kind === 'transfer' ? 'From account' : 'Account')}
+                {accounts('account_id', kind === 'transfer' ? 'From account' : 'Account')}
                 {kind === 'transfer' ? (
-                  accounts('destination_id', 'To account', v.destination_id || '')
+                  accounts('destination_account_id', 'To account', v.destination_account_id || '')
                 ) : (
                   <label>
                     Category
@@ -1161,10 +1161,10 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
               {kind === 'transfer' && <p className="info-note">Transfers move money between accounts. They are excluded from income and spending.</p>}
             </>
           )}
-          {modal.type === 'wallet' && (
+          {modal.type === 'account' && (
             <>
               {field('Account name', 'name', 'text', v.name)}
-              {field(`Opening balance (${d.profile.currency})`, 'opening', 'text', v.id ? decimal(v.opening) : '0.00')}
+              {field(`Opening balance (${d.ledger.currency})`, 'opening', 'text', v.id ? decimal(v.opening) : '0.00')}
               <p className="small muted">The opening balance is added to every recorded transaction to calculate the current balance.</p>
               <label className="checkbox">
                 <input type="checkbox" name="archived" defaultChecked={!!v.archived} />
@@ -1185,7 +1185,7 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
                 </select>
               </label>
               {field('Month', 'month', 'month', v.all_months ? d.month : v.month || d.month)}
-              {amount(`Monthly limit (${d.profile.currency})`)}
+              {amount(`Monthly limit (${d.ledger.currency})`)}
               <label className="checkbox">
                 <input type="checkbox" name="all_months" defaultChecked={Boolean(v.all_months)} />
                 Apply to all months
@@ -1232,7 +1232,7 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
           {modal.type === 'goal' && (
             <>
               {field('Goal name', 'name', 'text', v.name)}
-              {amount(`Target amount (${d.profile.currency})`)}
+              {amount(`Target amount (${d.ledger.currency})`)}
               {field('Target date', 'target_date', 'date', v.target_date || today())}
             </>
           )}
@@ -1242,7 +1242,7 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
               <p>
                 Allocate to <strong>{v.name}</strong>
               </p>
-              {amount(`Allocation (${d.profile.currency})`, '')}
+              {amount(`Allocation (${d.ledger.currency})`, '')}
               {field('Date', 'date', 'date', today())}
               <p className="small muted">This allocation does not deduct from an account or create an expense. You can undo it from the allocation history.</p>
             </>
@@ -1259,19 +1259,19 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
             <button className="primary" disabled={pending}>
               {pending
                 ? 'Saving…'
-                : modal.type === 'reset'
-                  ? 'Reset workspace'
-                  : 'Save ' + (modal.type === 'entry' ? 'transaction' : modal.type === 'contribute' ? 'allocation' : modal.type)}
+                : modal.type === 'reset_ledger'
+                  ? 'Reset ledger'
+                  : 'Save ' + (modal.type === 'transaction' ? 'transaction' : modal.type === 'contribute' ? 'allocation' : modal.type)}
             </button>
           </div>
         </Form>
-        {modal.type === 'wallet' && v.id && (
+        {modal.type === 'account' && v.id && (
           <>
             <Form method="post" className="form-stack">
-              <h3>Adjust wallet balance</h3>
-              <input type="hidden" name="intent" value="adjust_wallet" />
+              <h3>Adjust account balance</h3>
+              <input type="hidden" name="intent" value="adjust_account" />
               <input type="hidden" name="id" value={v.id} />
-              {field(`Correct current balance (${d.profile.currency})`, 'balance', 'text', decimal(v.balance))}
+              {field(`Correct current balance (${d.ledger.currency})`, 'balance', 'text', decimal(v.balance))}
               <p className="small muted">
                 Updates the opening balance by the difference. Historical balances change; transactions, income, and spending stay the same. Includes future
                 transactions.
@@ -1282,30 +1282,30 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
             </Form>
             <br></br>
             <Form method="post" className="form-stack">
-              <h3>Delete wallet</h3>
-              <input type="hidden" name="intent" value="delete_wallet" />
+              <h3>Delete account</h3>
+              <input type="hidden" name="intent" value="delete_account" />
               <input type="hidden" name="id" value={v.id} />
               <label>
                 Transaction handling
                 <select name="policy" defaultValue="keep">
-                  <option value="keep">Keep transactions — archive wallet</option>
-                  <option value="delete">Permanently delete wallet and linked records</option>
+                  <option value="keep">Keep transactions — archive account</option>
+                  <option value="delete">Permanently delete account and linked records</option>
                 </select>
               </label>
               <p className="small muted">
                 Archiving keeps reports and total funds. Permanent deletion removes linked transactions, receipts, subscriptions, and both sides of transfers,
-                changing other wallet balances. This cannot be undone.
+                changing other account balances. This cannot be undone.
               </p>
               {field('For permanent deletion, type DELETE', 'confirmation', 'text', '', false)}
               <button className="secondary negative" disabled={pending}>
-                Apply wallet removal
+                Apply account removal
               </button>
             </Form>
           </>
         )}
-        {modal.type === 'entry' && v.id && (
+        {modal.type === 'transaction' && v.id && (
           <div className="delete-area">
-            <DeleteForm intent="delete_entry" id={v.id} label="Delete transaction" />
+            <DeleteForm intent="delete_transaction" id={v.id} label="Delete transaction" />
           </div>
         )}
       </div>

@@ -33,9 +33,12 @@ export const bridge = {
 };
 
 export function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
+  if (error instanceof Error) {return error.message;}
+
+  if (typeof error === 'string') {return error;}
+
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {return error.message;}
+
   return 'Unable to complete the request. Please try again.';
 }
 
@@ -47,13 +50,18 @@ export async function serializeForm(data: FormData): Promise<SerializedForm> {
     const bytes = typeof value === 'string' ? new TextEncoder().encode(value).byteLength : value.size;
     size += bytes;
     const csv = key === 'csv' || key === 'file';
-    if (csv && bytes > 1024 * 1024) throw new Error('CSV must be at most 1 MB.');
+
+    if (csv && bytes > 1024 * 1024) {throw new Error('CSV must be at most 1 MB.');}
+
     if (typeof value !== 'string' && bytes > 5 * 1024 * 1024) {
       throw new Error('File must be no larger than 5 MB.');
     }
+
     fields.push([key, value]);
   });
-  if (size > 6 * 1024 * 1024) throw new Error('Request exceeds 6 MB.');
+
+  if (size > 6 * 1024 * 1024) {throw new Error('Request exceeds 6 MB.');}
+
   for (const [key, value] of fields) {
     form[key] =
       typeof value === 'string'

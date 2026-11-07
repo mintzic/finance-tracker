@@ -21,14 +21,19 @@ export function useCoverUrl(version: string | undefined, profileId: string) {
     let active = true;
     let url: string | undefined;
     setError('');
+
     if (version) {
       bridge.asset('cover', version).then((asset) => {
-        if (!active) return;
+        if (!active) {return;}
+
         url = URL.createObjectURL(new Blob([new Uint8Array(asset.bytes)], { type: asset.mime }));
         setAsset({ key, url });
-      }).catch((reason) => { if (active) setError(errorMessage(reason)); });
+      }).catch((reason) => { if (active) {setError(errorMessage(reason));} });
     }
-    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+
+    return () => { active = false;
+
+ if (url) {URL.revokeObjectURL(url);} };
   }, [version, profileId, key]);
   return { url: asset?.key === key ? asset.url : undefined, error };
 }
@@ -55,7 +60,9 @@ export function ExportLink({ children, ...props }: AnchorHTMLAttributes<HTMLAnch
   return <>
     <a {...props} href="#export" aria-disabled={busy} onClick={async (event) => {
       event.preventDefault();
-      if (busy) return;
+
+      if (busy) {return;}
+
       setBusy(true); setError('');
       try { download(new Blob([await bridge.exportCsv()], { type: 'text/csv;charset=utf-8' }), 'folio-transactions.csv'); }
       catch (reason) { setError(errorMessage(reason)); }

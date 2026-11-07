@@ -73,7 +73,11 @@ function DeferredTrendChart(props: ComponentProps<typeof TrendChart>) {
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DashboardData> {
   const { profile } = await bridge.profiles();
-  if (!profile) throw redirect('/profiles');
+
+  if (!profile) {
+    throw redirect('/profiles');
+  }
+
   const params: Record<string, string> = {};
   new URL(request.url).searchParams.forEach((value, key) => {
     params[key] = value;

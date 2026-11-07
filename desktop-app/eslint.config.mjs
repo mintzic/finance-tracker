@@ -2,7 +2,7 @@ import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
 
 export default [
-  { ignores: ['node_modules/**', 'build/**', '.react-router/**'] },
+  { ignores: ['node_modules/**', 'build/**', '.react-router/**', 'src-tauri/**'] },
   {
     files: ['**/*.{js,mjs,cjs,jsx,ts,tsx}'],
     languageOptions: {

@@ -9,9 +9,11 @@ export function loader() {
 export async function action({ request }: ActionFunctionArgs) {
   try {
     const form = await serializeForm(await request.formData());
+
     if (form.intent === 'import_legacy') {
       return await bridge.importLegacy(String(form.source || ''), String(form.confirmation || ''));
     }
+
     let result: ActionResult;
     switch (form.intent) {
       case 'create_profile':
@@ -26,9 +28,11 @@ export async function action({ request }: ActionFunctionArgs) {
       default:
         return { error: 'Unknown profile action.' };
     }
+
     if (result && typeof result === 'object' && 'error' in result && result.error) {
       return { error: String(result.error) };
     }
+
     return form.inline === 'true' ? result : redirect('/');
   } catch (error) {
     return { error: errorMessage(error) };

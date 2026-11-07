@@ -1,6 +1,6 @@
 [package]
 name = "folio-finance-tracker"
-version = "1.0.4"
+version = "1.1.0"
 description = "A Personal Finance Tracker built with React and Rust using Tauri"
 authors = ["mintzic"]
 edition = "2024"

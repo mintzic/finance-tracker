@@ -865,7 +865,10 @@ mod tests {
     struct Temp(PathBuf);
     impl Temp {
         fn new() -> Self {
-            let p = std::env::temp_dir().join(format!("folio-storage-test-{}", Uuid::new_v4()));
+            // macOS temporary paths can have a symlinked /var ancestor.
+                        let p = fs::canonicalize(std::env::temp_dir())
+                            .unwrap()
+                            .join(format!("folio-storage-test-{}", Uuid::new_v4()));
             fs::create_dir(&p).unwrap();
             Self(p)
         }

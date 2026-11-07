@@ -3,7 +3,8 @@
 mod tests {
     use super::*;
     fn temp() -> Scratch {
-        Scratch::new(&std::env::temp_dir()).unwrap()
+        // Keep the fixture outside symlinked ancestors such as macOS /var.
+                Scratch::new(&fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap()
     }
     #[test]
     fn roundtrip_all_ledgers_assets_and_registry() {

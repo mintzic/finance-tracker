@@ -976,7 +976,9 @@ tbody tr:hover {
 .budget-actions .secondary {
   min-height: 36px;
   padding: 9px 15px;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
 }
 .budget-actions .secondary:hover {
   border-color: #817194;
@@ -1868,5 +1870,210 @@ select option {
   }
   .cover-position-form {
     justify-content: flex-end;
+  }
+}
+
+.ledger-switcher {
+  position: relative;
+}
+.ledger-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: #e1dce9;
+  font-size: 12px;
+}
+.ledger-switcher-trigger:hover,
+.ledger-switcher-trigger[aria-expanded='true'] {
+  background: #24232f;
+  border-color: #393542;
+}
+.ledger-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 280px;
+  max-width: calc(100vw - 40px);
+  background: #20202b;
+  border: 1px solid #393542;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 16px 48px #0006;
+  z-index: 45;
+}
+.ledger-dropdown .eyebrow {
+  padding: 10px;
+  margin: 0;
+  font-size: 9px;
+}
+.ledger-options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.ledger-options button,
+.ledger-manage-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 11px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #dcd8e6;
+  font-size: 12px;
+  text-align: left;
+}
+.ledger-options button:hover,
+.ledger-manage-link:hover {
+  background: #302b40;
+}
+.ledger-options button.selected {
+  color: #c6adff;
+  background: #32254e;
+}
+.ledger-options button > span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.ledger-options small {
+  display: block;
+  margin-top: 4px;
+  color: #a19bae;
+  font-size: 10px;
+}
+.ledger-manage-link {
+  border-top: 1px solid #393542;
+  margin-top: 7px;
+  border-radius: 0 0 6px 6px;
+}
+.ledger-grid {
+  margin-top: 24px;
+}
+.ledger-card {
+  text-align: left;
+  min-width: 0;
+}
+.ledger-card h2 {
+  margin: 24px 0 8px;
+  overflow-wrap: anywhere;
+}
+.ledger-active {
+  border-color: #70539f;
+  background: linear-gradient(120deg, #32254e, #252132);
+}
+.ledger-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 24px;
+}
+.ledger-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ledger-editor {
+  overflow-y: auto;
+}
+.ledger-editor .form-stack > p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.ledger-editor .ledger-card-actions {
+  margin-top: 0;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: calc(100vh - 65px);
+}
+.settings-navigation {
+  padding: 36px 22px;
+  border-right: 1px solid #2a2a2f;
+}
+.settings-navigation h1 {
+  font-size: 23px;
+  margin: 10px 12px 28px;
+}
+.settings-navigation > .eyebrow {
+  margin-left: 12px;
+}
+.settings-navigation > p:last-child {
+  margin: 28px 12px 0;
+  line-height: 1.8;
+}
+.settings-configuration {
+  min-width: 0;
+  padding: 40px;
+}
+.settings-configuration > .panel {
+  max-width: 850px;
+}
+.settings-configuration .page-heading {
+  margin-bottom: 30px;
+}
+.settings-configuration > .panel.form-stack,
+.settings-configuration > .settings-categories {
+  padding: 24px;
+}
+.settings-configuration > .panel.form-stack > .secondary {
+  align-self: flex-start;
+}
+.settings-configuration .form-stack > p {
+  line-height: 1.7;
+}
+.settings-categories .editor-inner {
+  padding: 0;
+}
+.settings-categories .panel-heading {
+  padding: 0;
+  margin-bottom: 18px;
+}
+.settings-categories .editor-actions {
+  justify-content: flex-end;
+}
+@media (max-width: 1000px) {
+  .settings-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+  .settings-configuration {
+    padding: 28px 22px;
+  }
+  .settings-navigation {
+    padding: 28px 12px;
+  }
+}
+@media (max-width: 760px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-navigation {
+    border-right: 0;
+    border-bottom: 1px solid #2a2a2f;
+    padding: 20px 18px;
+  }
+  .settings-navigation nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-navigation h1 {
+    margin-bottom: 18px;
+  }
+  .settings-navigation > p:last-child {
+    display: none;
+  }
+  .settings-configuration {
+    padding: 26px 18px;
+  }
+  .settings-configuration > .panel.form-stack,
+  .settings-configuration > .settings-categories {
+    padding: 20px;
   }
 }

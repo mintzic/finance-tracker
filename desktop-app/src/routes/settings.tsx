@@ -1,6 +1,5 @@
-import { Link, useLoaderData, type ActionFunctionArgs } from 'react-router';
+import { Navigate, type ActionFunctionArgs } from 'react-router';
 import { bridge, serializeForm, errorMessage } from '@/lib/bridge';
-import { SettingsForms } from '@/components/user-settings';
 
 export function loader() {
   return bridge.settings();
@@ -37,20 +36,5 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Settings() {
-  const settings = useLoaderData<typeof loader>();
-  return (
-    <main className="profile-page">
-      <h1>Settings</h1>
-      <p>
-        Active ledger:{' '}
-        <strong>
-          {settings.ledger.name} · {settings.ledger.currency}
-        </strong>
-      </p>
-      <SettingsForms settings={settings} />
-      <Link to="/" className="text-button">
-        Back to ledger
-      </Link>
-    </main>
-  );
+  return <Navigate to="/?view=settings" replace />;
 }

@@ -5,6 +5,43 @@ import type { ActionResult, Ledger, Profile, SettingsData } from '@/lib/types';
 import { currencyOptions } from '@/lib/currency';
 import { bridge, errorMessage } from '@/lib/bridge';
 
+export function ProfileSettings({ profile }: { profile: Profile }) {
+  const fetcher = useFetcher<ActionResult>();
+  return (
+    <fetcher.Form method="post" action="/settings" className="panel form-stack" key={`${profile.username}-${profile.language}`}>
+      <h2>Personal details</h2>
+      <input type="hidden" name="intent" value="update_profile" />
+      <label>
+        Username
+        <input name="username" defaultValue={profile.username} required maxLength={80} />
+      </label>
+      <label>
+        Language
+        <select name="language" defaultValue={profile.language}>
+          <option value="en-SG">English</option>
+          <option value="zh-SG">简体中文</option>
+          <option value="ms-MY">Bahasa Melayu</option>
+        </select>
+      </label>
+      {fetcher.data?.error && (
+        <p className="error" role="alert">
+          {fetcher.data.error}
+        </p>
+      )}
+      {fetcher.data?.message && (
+        <p className="small positive" role="status">
+          {fetcher.data.message}
+        </p>
+      )}
+      <div>
+        <button className="primary" disabled={fetcher.state !== 'idle'}>
+          Save profile
+        </button>
+      </div>
+    </fetcher.Form>
+  );
+}
+
 export function SettingsForms({ settings }: { settings: SettingsData }) {
   const { profile, ledger, ledgers, defaultCurrency } = settings;
   const fetcher = useFetcher<ActionResult>();

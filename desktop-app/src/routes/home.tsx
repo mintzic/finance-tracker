@@ -27,6 +27,7 @@ import {
   Menu,
   Target,
   UserRound,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useLoaderData, useActionData, type LoaderFunctionArgs, type ActionFunctionArgs } from 'react-router';
 import { bridge, serializeForm, errorMessage } from '@/lib/bridge';
@@ -40,7 +41,8 @@ import { Button } from '@/components/ui/button';
 import { LedgerCover } from '@/components/ledger-cover';
 import type { Transaction } from '@/lib/types';
 import catIcon from '@/assets/icon.png';
-import { UserSettings } from '@/components/user-settings';
+import { ProfileSettings } from '@/components/user-settings';
+import { LedgerSwitcher, LedgerManager } from '@/components/ledger-switcher';
 
 const SpendingChart = lazy(() => import('@/components/charts').then((module) => ({ default: module.SpendingChart })));
 const TrendChart = lazy(() => import('@/components/charts').then((module) => ({ default: module.TrendChart })));
@@ -76,19 +78,28 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Dashboard
   new URL(request.url).searchParams.forEach((value, key) => {
     params[key] = value;
   });
+
+  if (params.view === 'ledgers' || params.view === 'settings') {
+    params.view = 'dashboard';
+  }
+
   return bridge.dashboard(params);
 }
 
 export async function action({ request }: ActionFunctionArgs): Promise<ActionResult> {
   try {
     const data = await request.formData();
+
     if (data.get('intent') === 'upload_cover') {
       const file = data.get('cover');
+
       if (!(file instanceof File) || !file.size) {
         return { error: 'Choose an image.' };
       }
+
       return await bridge.uploadCover(file);
     }
+
     const form = await serializeForm(data);
     switch (form.intent) {
       case 'account':
@@ -182,7 +193,8 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
   const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
   const isIncome = d.section === 'income';
   const [params] = useSearchParams();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPage = params.get('view') === 'settings' || params.get('view') === 'import';
+  const settingsSection = params.get('view') === 'import' ? 'import' : params.get('section') || 'profile';
   const [modal, setModal] = useState<Modal | null>(null),
     [mobile, setMobile] = useState(false);
   const pending = useNavigation().state !== 'idle';
@@ -201,7 +213,8 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
   const edit = (transaction: Transaction) => setModal({ type: 'transaction', value: transaction });
   const total = d.accounts.reduce((sum, w) => sum + w.balance, 0);
   const monthName = new Date(d.month + '-01T12:00:00').toLocaleDateString(d.profile.language, { month: 'long', year: 'numeric' });
-  const title = navigation.find((n) => n[0] === d.section)?.[1] || 'Import transactions';
+  const managingLedgers = params.get('view') === 'ledgers';
+  const title = managingLedgers ? 'Manage ledgers' : navigation.find((n) => n[0] === d.section)?.[1] || 'Import transactions';
   const changePage = (page: number) => {
     const p = new URLSearchParams(params);
     p.set('page', String(page));
@@ -220,21 +233,16 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
         </button>
         <nav>
           {navigation.map(([key, label, Icon]) => (
-            <Link key={key} to={href(key)} onClick={() => setMobile(false)} className={d.section === key ? 'active' : ''}>
+            <Link key={key} to={href(key)} onClick={() => setMobile(false)} className={!settingsPage && !managingLedgers && d.section === key ? 'active' : ''}>
               <Icon size={17} />
               {t(label)}
               {d.section === key && <span className="active-dot" />}
             </Link>
           ))}
-          <button
-            type="button"
-            onClick={() => {
-              setMobile(false);
-              setModal({ type: 'categories' });
-            }}>
-            <SlidersHorizontal size={17} />
-            {t('Categories')}
-          </button>
+          <Link to={href('settings')} className={settingsPage ? 'active' : ''} onClick={() => setMobile(false)}>
+            <SettingsIcon size={17} />
+            Settings
+          </Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="cat-companion">
@@ -245,10 +253,6 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             </p>
             <span>Small steps. Steady habits.</span>
           </div>
-          <Link to={href('import')} className="utility-link">
-            <Upload size={16} />
-            {t('Import & export')}
-          </Link>
           <div className="sidebar-footer">
             <span className="status-dot" />
             {d.profile.username}
@@ -262,657 +266,747 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
             <button className="mobile-toggle icon-button" onClick={() => setMobile(true)} aria-label="Open navigation">
               <Menu size={20} />
             </button>
-            <span>
-              {d.ledger.name} · {d.ledger.currency}
-            </span>
-            <ChevronRight size={13} />
-            <strong>{t(title)}</strong>
+            <LedgerSwitcher
+              ledger={d.ledger}
+              ledgers={d.ledgers}
+              manage={() => {
+                window.location.hash = href('ledgers');
+              }}
+            />
           </div>
           <button
             type="button"
             className="user-menu-trigger"
             aria-label={t('User settings')}
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(true)}>
+
+            onClick={() => {
+              window.location.hash = href('settings');
+            }}>
             <UserRound size={18} />
             <span>{d.profile.username}</span>
           </button>
         </header>
-        <LedgerCover key={d.ledger.id} ledgerId={d.ledger.id} cover={d.cover} />
-        <main className="content">
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
-              <h1>
-                {d.section === 'dashboard' ? 'A clearer picture.' : title}
-                {d.section === 'dashboard' && <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />}
-              </h1>
-              <p className="muted">
-                {d.section === 'dashboard'
-                  ? 'A little overview of where you are, and where you’re going.'
-                  : d.section === 'reports'
-                    ? 'Understand your cash flow and the habits behind it.'
-                    : d.section === 'accounts'
-                      ? 'Every account, one place. Balances calculated from your records.'
-                      : d.section === 'goals'
-                        ? 'Put a little aside for the things that mean a lot.'
-                        : d.section === 'subscriptions'
-                          ? 'Keep an eye on the little things that add up.'
-                          : 'A place for every detail. A little more peace of mind.'}
+        {!managingLedgers && !settingsPage && <LedgerCover key={d.ledger.id} ledgerId={d.ledger.id} cover={d.cover} />}
+        {settingsPage ? (
+          <main className="settings-layout">
+            <aside className="settings-navigation">
+              <p className="eyebrow">PREFERENCES</p>
+              <h1>Settings</h1>
+              <nav aria-label="Settings sections">
+                {(
+                  [
+                    ['profile', 'Profile', UserRound],
+                    ['categories', 'Categories', SlidersHorizontal],
+                    ['import', 'Import & export', Upload],
+                    ['data', 'Data & reset', SettingsIcon],
+                  ] as const
+                ).map(([key, label, Icon]) => (
+                  <Link
+                    key={String(key)}
+                    to={href('settings', { section: String(key) })}
+                    aria-current={settingsSection === key ? 'page' : undefined}
+                    className={settingsSection === key ? 'active' : ''}>
+                    <Icon size={17} />
+                    {String(label)}
+                  </Link>
+                ))}
+              </nav>
+              <p className="small muted">
+                Ledger settings apply to
+                <br />
+                <strong>
+                  {d.ledger.name} · {d.ledger.currency}
+                </strong>
               </p>
-            </div>
-            <div className="heading-actions">
-              <Form method="get" className="month-form">
-                <input type="hidden" name="view" value={d.section} />
-                <input
-                  aria-label="Select month"
-                  type="month"
-                  name="month"
-                  min="1900-01"
-                  max="9998-12"
-                  value={d.month}
-                  onChange={(e) => e.currentTarget.form?.requestSubmit()}
+            </aside>
+            <section className="settings-configuration" aria-label="Settings configuration">
+              <div className="page-heading">
+                <div>
+                  <p className="eyebrow">MAKE YOURSELF AT HOME</p>
+                  <h1>
+                    {settingsSection === 'categories'
+                      ? 'Categories'
+                      : settingsSection === 'import'
+                        ? 'Import & export'
+                        : settingsSection === 'data'
+                          ? 'Data & reset'
+                          : 'Your profile'}
+                  </h1>
+                  <p className="muted">A few preferences. A space that feels like yours.</p>
+                </div>
+              </div>
+              {actionData?.error && (
+                <p className="error" role="alert">
+                  {actionData.error}
+                </p>
+              )}
+              {actionData?.message && (
+                <p className="notice" role="status">
+                  {actionData.message}
+                </p>
+              )}
+              {settingsSection === 'profile' && <ProfileSettings profile={d.profile} />}
+              {settingsSection === 'categories' && (
+                <CategoryManager
+                  inline
+                  data={d}
+                  close={() => setModal(null)}
+                  edit={(value) => setModal({ type: 'category', value })}
+                  create={() => setModal({ type: 'category' })}
+                  pending={pending}
                 />
-                <noscript>
-                  <button>Apply</button>
-                </noscript>
-              </Form>
-              <Button onClick={() => setModal({ type: 'transaction' })} className="primary">
-                <Plus size={16} />
-                Add transaction
-              </Button>
-            </div>
-          </div>
-          {actionData && 'error' in actionData && actionData.error && (
-            <div role="alert" className="notice error">
-              {actionData.error}
-            </div>
-          )}
-          {actionData && 'message' in actionData && actionData.message && (
-            <div role="status" className="notice">
-              {actionData.message}
-            </div>
-          )}
-          {!d.accounts.length && (
-            <div className="onboarding panel">
-              <div>
-                <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
-                <h2>Make yourself at home.</h2>
-                <p className="muted">Create your first account, or explore with clearly labelled fictional demo data.</p>
-                <Link to="/settings" className="text-button">
-                  Import legacy data before entering financial records
-                </Link>
-              </div>
-              <div className="flex-actions">
-                <button className="primary" onClick={() => setModal({ type: 'account' })}>
-                  Create account
-                </button>
-                <Form method="post">
-                  <input type="hidden" name="intent" value="demo" />
-                  <button className="secondary" disabled={pending}>
-                    Load fictional demo
+              )}
+              {settingsSection === 'data' && (
+                <section className="panel form-stack">
+                  <h2>Reset current ledger</h2>
+                  <p className="muted small">
+                    Permanently clear financial records in {d.ledger.name}. Other ledgers are unaffected. Export your records before continuing.
+                  </p>
+                  <button className="secondary negative" onClick={() => setModal({ type: 'reset_ledger' })}>
+                    Reset ledger
                   </button>
+                </section>
+              )}
+              {settingsSection === 'import' && (
+                <section className="panel import-panel">
+                  <h2>Bring your records together.</h2>
+                  <p className="muted">
+                    Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive{' '}
+                    {d.ledger.currency} decimals, without currency symbols or thousands separators.
+                  </p>
+                  <code className="csv-example">
+                    date,kind,description,amount,account,destination,category,notes
+                    <br />
+                    2026-10-01,expense,Coffee,6.50,Everyday,,Food & dining,
+                  </code>
+                  <p className="small muted">
+                    Kinds: income, expense, transfer. Transfer category: Transfer. For transfers, supply a destination account. Other categories must match the
+                    categories available in the transaction form.
+                  </p>
+                  <Form method="post" encType="multipart/form-data" className="form-stack">
+                    <input type="hidden" name="intent" value="preview_import" />
+                    <label>
+                      CSV file
+                      <input type="file" name="file" accept=".csv,text/csv" />
+                    </label>
+                    <label>
+                      Or paste CSV
+                      <textarea name="csv" rows={6} placeholder="Paste CSV with the required header row" />
+                    </label>
+                    <button className="primary" disabled={pending}>
+                      <Upload size={15} />
+                      Preview import
+                    </button>
+                  </Form>
+                  {actionData && 'preview' in actionData && actionData.preview && (
+                    <div className="import-preview">
+                      <h2>Review your import</h2>
+                      <p>
+                        {actionData.preview.length} rows · {actionData.preview.filter((r) => r.error).length} invalid ·{' '}
+                        {actionData.preview.filter((r) => r.duplicate).length} duplicates
+                      </p>
+                      <div className="table-scroll preview-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Line</th>
+                              <th>Description</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {actionData.preview.map((row) => (
+                              <tr key={row.line}>
+                                <td>{row.line}</td>
+                                <td>{row.description}</td>
+                                <td className={row.error ? 'negative' : row.duplicate ? 'muted' : 'positive'}>
+                                  {row.error || (row.duplicate ? 'Duplicate — will skip' : 'Ready')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <Form method="post" className="form-stack">
+                        <input type="hidden" name="intent" value="commit_import" />
+                        <input type="hidden" name="csv" value={actionData.csv} />
+                        <label>
+                          Duplicate handling
+                          <select name="policy">
+                            <option value="skip">Skip duplicate rows</option>
+                            <option value="reject">Reject entire import if duplicates exist</option>
+                          </select>
+                        </label>
+                        <button className="primary" disabled={pending || actionData.preview.some((r) => r.error)}>
+                          Confirm import
+                        </button>
+                      </Form>
+                      <p className="small muted">
+                        Duplicates match date, type, amount, description (case insensitive), accounts, category, and notes. Matching rows are treated as
+                        duplicates, even if intentional. The server validates the CSV again at confirmation; the entire import is atomic.
+                      </p>
+                    </div>
+                  )}
+                  <div className="panel-footer">
+                    <span>Export all transaction history</span>
+                    <ExportLink className="secondary">
+                      <Download size={15} />
+                      Download CSV
+                    </ExportLink>
+                  </div>
+                  <p className="small muted">
+                    CSV exports exclude receipt files and are not a complete backup. Spreadsheet-formula prefixes are escaped for safe opening.
+                  </p>
+                </section>
+              )}
+            </section>
+          </main>
+        ) : managingLedgers ? (
+          <main className="content">
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
+                <h1>Manage ledgers</h1>
+              </div>
+              <Link className="text-button" to={href('dashboard')}>
+                Back to overview
+              </Link>
+            </div>
+            <LedgerManager ledger={d.ledger} ledgers={d.ledgers} />
+          </main>
+        ) : (
+          <main className="content">
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
+                <h1>
+                  {d.section === 'dashboard' ? 'A clearer picture.' : title}
+                  {d.section === 'dashboard' && <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />}
+                </h1>
+                <p className="muted">
+                  {d.section === 'dashboard'
+                    ? 'A little overview of where you are, and where you’re going.'
+                    : d.section === 'reports'
+                      ? 'Understand your cash flow and the habits behind it.'
+                      : d.section === 'accounts'
+                        ? 'Every account, one place. Balances calculated from your records.'
+                        : d.section === 'goals'
+                          ? 'Put a little aside for the things that mean a lot.'
+                          : d.section === 'subscriptions'
+                            ? 'Keep an eye on the little things that add up.'
+                            : 'A place for every detail. A little more peace of mind.'}
+                </p>
+              </div>
+              <div className="heading-actions">
+                <Form method="get" className="month-form">
+                  <input type="hidden" name="view" value={d.section} />
+                  <input
+                    aria-label="Select month"
+                    type="month"
+                    name="month"
+                    min="1900-01"
+                    max="9998-12"
+                    value={d.month}
+                    onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                  />
+                  <noscript>
+                    <button>Apply</button>
+                  </noscript>
                 </Form>
+                <Button onClick={() => setModal({ type: 'transaction' })} className="primary">
+                  <Plus size={16} />
+                  Add transaction
+                </Button>
               </div>
             </div>
-          )}
-          {d.section === 'dashboard' && (
-            <>
-              <div className="section-heading">
-                <h2>
-                  <AccountIcon size={17} />
-                  Your accounts <span className="count">{d.accounts.filter((w) => !w.archived).length}</span>
-                </h2>
-                <Link to={href('accounts')}>
-                  Manage accounts <ArrowRight size={14} />
-                </Link>
+            {actionData && 'error' in actionData && actionData.error && (
+              <div role="alert" className="notice error">
+                {actionData.error}
               </div>
-              <div className="account-grid">
-                <div className="account-card total-card">
-                  <div className="card-label">
-                    <span>Total account funds</span>
-                    <span className="mini-symbol">∑</span>
+            )}
+            {actionData && 'message' in actionData && actionData.message && (
+              <div role="status" className="notice">
+                {actionData.message}
+              </div>
+            )}
+            {!d.accounts.length && (
+              <div className="onboarding panel">
+                <div>
+                  <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
+                  <h2>Make yourself at home.</h2>
+                  <p className="muted">Create your first account, or explore with clearly labelled fictional demo data.</p>
+                  <Link to="/settings" className="text-button">
+                    Import legacy data before entering financial records
+                  </Link>
+                </div>
+                <div className="flex-actions">
+                  <button className="primary" onClick={() => setModal({ type: 'account' })}>
+                    Create account
+                  </button>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="demo" />
+                    <button className="secondary" disabled={pending}>
+                      Load fictional demo
+                    </button>
+                  </Form>
+                </div>
+              </div>
+            )}
+            {d.section === 'dashboard' && (
+              <>
+                <div className="section-heading">
+                  <h2>
+                    <AccountIcon size={17} />
+                    Your accounts <span className="count">{d.accounts.filter((w) => !w.archived).length}</span>
+                  </h2>
+                  <Link to={href('accounts')}>
+                    Manage accounts <ArrowRight size={14} />
+                  </Link>
+                </div>
+                <div className="account-grid">
+                  <div className="account-card total-card">
+                    <div className="card-label">
+                      <span>Total account funds</span>
+                      <span className="mini-symbol">∑</span>
+                    </div>
+                    <strong className="balance">{money(total)}</strong>
+                    <p>
+                      <span className="status-dot" />
+                      All recorded balances · {d.ledger.currency}
+                    </p>
                   </div>
-                  <strong className="balance">{money(total)}</strong>
+                  {d.accounts
+                    .filter((w) => !w.archived)
+                    .map((account, i) => (
+                      <button key={account.id} className={`account-card account-${i % 3}`} onClick={() => setModal({ type: 'account', value: account })}>
+                        <div className="card-label">
+                          <span>{account.name}</span>
+                          {i === 0 ? <Landmark size={18} /> : i === 1 ? <CreditCard size={18} /> : <Coins size={18} />}
+                        </div>
+                        <strong className="balance">{money(account.balance)}</strong>
+                        <p>
+                          Current balance <ArrowUpRight size={13} />
+                        </p>
+                      </button>
+                    ))}
+                </div>
+                <div className="summary-strip">
+                  <div>
+                    <span className="summary-icon income">
+                      <ArrowDownLeft size={18} />
+                    </span>
+                    <span>
+                      <small>Income this month</small>
+                      <strong>{money(d.sum.income)}</strong>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="summary-icon expense">
+                      <ArrowUpRight size={18} />
+                    </span>
+                    <span>
+                      <small>Expenses this month</small>
+                      <strong>{money(d.sum.expense)}</strong>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="summary-icon transfer">
+                      <Coins size={18} />
+                    </span>
+                    <span>
+                      <small>Net cash flow</small>
+                      <strong className={d.sum.income - d.sum.expense >= 0 ? 'positive' : 'negative'}>{money(d.sum.income - d.sum.expense)}</strong>
+                    </span>
+                  </div>
                   <p>
-                    <span className="status-dot" />
-                    All recorded balances · {d.ledger.currency}
+                    {monthName}
+                    <br />
+                    <span>One month at a time.</span>
                   </p>
                 </div>
-                {d.accounts
-                  .filter((w) => !w.archived)
-                  .map((account, i) => (
-                    <button key={account.id} className={`account-card account-${i % 3}`} onClick={() => setModal({ type: 'account', value: account })}>
+                <div className="dashboard-middle">
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Where it went</h2>
+                      <span className="small muted">{monthName}</span>
+                    </div>
+                    <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
+                    <div className="panel-footer">
+                      <span className="muted small">Every little thing adds up.</span>
+                      <Link to={href('reports')}>
+                        Explore reports <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  </section>
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Room in your budget</h2>
+                      <Link to={href('budgets')}>
+                        View all <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                    <div className="budget-list">
+                      {d.budgets.slice(0, 4).map((b) => (
+                        <Budget key={b.id} budget={b} />
+                      ))}
+                      {!d.budgets.length && (
+                        <div className="empty">
+                          <Target size={25} />
+                          <p>A plan for the month ahead.</p>
+                          <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
+                            Set a category budget →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="panel-footer">
+                      <span className="muted small">A guide, with a little breathing room.</span>
+                      <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
+                        <Plus size={13} />
+                        Budget
+                      </button>
+                    </div>
+                  </section>
+                </div>
+                {[
+                  ['Recent expenses', d.recentExpenses, 'expenses'],
+                  ['Recent income', d.recentIncome, 'income'],
+                  ['Recent transfers', d.recentTransfers, 'transfers'],
+                ].map(([label, rows, section]) => (
+                  <section key={String(label)} className="panel table-panel">
+                    <div className="panel-heading">
+                      <h2>{String(label)}</h2>
+                      <Link to={href(String(section))}>
+                        View all <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                    <TransactionTable rows={rows as Transaction[]} onEdit={edit} transfers={section === 'transfers'} />
+                  </section>
+                ))}
+              </>
+            )}
+            {d.section === 'accounts' && (
+              <>
+                <div className="section-heading">
+                  <h2>
+                    Account balances <span className="muted small">All time, including future-dated records</span>
+                  </h2>
+                  <button className="text-button" onClick={() => setModal({ type: 'account' })}>
+                    <Plus size={15} />
+                    New account
+                  </button>
+                </div>
+                <div className="account-grid standalone">
+                  {d.accounts.map((account, i) => (
+                    <button className={`account-card account-${i % 3}`} key={account.id} onClick={() => setModal({ type: 'account', value: account })}>
                       <div className="card-label">
                         <span>{account.name}</span>
-                        {i === 0 ? <Landmark size={18} /> : i === 1 ? <CreditCard size={18} /> : <Coins size={18} />}
+                        <Landmark size={18} />
                       </div>
                       <strong className="balance">{money(account.balance)}</strong>
                       <p>
-                        Current balance <ArrowUpRight size={13} />
+                        Opening {money(account.opening)} {account.archived ? '· Archived' : ''}
                       </p>
                     </button>
                   ))}
-              </div>
-              <div className="summary-strip">
-                <div>
-                  <span className="summary-icon income">
-                    <ArrowDownLeft size={18} />
-                  </span>
-                  <span>
-                    <small>Income this month</small>
-                    <strong>{money(d.sum.income)}</strong>
-                  </span>
                 </div>
-                <div>
-                  <span className="summary-icon expense">
-                    <ArrowUpRight size={18} />
-                  </span>
-                  <span>
-                    <small>Expenses this month</small>
-                    <strong>{money(d.sum.expense)}</strong>
-                  </span>
-                </div>
-                <div>
-                  <span className="summary-icon transfer">
-                    <Coins size={18} />
-                  </span>
-                  <span>
-                    <small>Net cash flow</small>
-                    <strong className={d.sum.income - d.sum.expense >= 0 ? 'positive' : 'negative'}>{money(d.sum.income - d.sum.expense)}</strong>
-                  </span>
-                </div>
-                <p>
-                  {monthName}
-                  <br />
-                  <span>One month at a time.</span>
+                <p className="muted small">
+                  Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary; untracked assets and liabilities are
+                  excluded.
                 </p>
-              </div>
-              <div className="dashboard-middle">
+              </>
+            )}
+            {['income', 'expenses'].includes(d.section) && (
+              <div className="two-grid transaction-insights">
                 <section className="panel">
                   <div className="panel-heading">
-                    <h2>Where it went</h2>
+                    <h2>{d.section === 'income' ? 'Where it came from' : 'Where it went'}</h2>
                     <span className="small muted">{monthName}</span>
                   </div>
-                  <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
-                  <div className="panel-footer">
-                    <span className="muted small">Every little thing adds up.</span>
-                    <Link to={href('reports')}>
-                      Explore reports <ArrowRight size={13} />
-                    </Link>
-                  </div>
+                  <DeferredSpendingChart
+                    data={d.section === 'income' ? d.incomeByCategory : d.spending}
+                    total={d.section === 'income' ? d.sum.income : d.sum.expense}
+                    income={d.section === 'income'}
+                  />
                 </section>
                 <section className="panel">
                   <div className="panel-heading">
-                    <h2>Room in your budget</h2>
-                    <Link to={href('budgets')}>
-                      View all <ArrowRight size={13} />
-                    </Link>
+                    <h2>{isIncome ? 'Income' : 'Expenses'} over time</h2>
+                    <span className="small muted">Six months to {monthName}</span>
                   </div>
-                  <div className="budget-list">
-                    {d.budgets.slice(0, 4).map((b) => (
-                      <Budget key={b.id} budget={b} />
+                  <DeferredTrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
+                </section>
+              </div>
+            )}
+            {['income', 'expenses', 'transfers'].includes(d.section) && (
+              <section className="panel table-panel">
+                <div className="panel-heading">
+                  <h2>
+                    {title} <span className="count">{d.count}</span>
+                  </h2>
+                  <ExportLink className="text-button">
+                    <Download size={14} />
+                    Export all CSV
+                  </ExportLink>
+                </div>
+                <Form method="get" className="filters">
+                  <input type="hidden" name="view" value={d.section} />
+                  <input type="hidden" name="month" value={d.month} />
+                  <div className="search-field">
+                    <Search size={15} />
+                    <input name="q" defaultValue={d.q} placeholder="Search description or notes" aria-label="Search transactions" />
+                  </div>
+                  <select name="account" defaultValue={d.account} aria-label="Filter account">
+                    <option value="">All accounts</option>
+                    {d.accounts.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
                     ))}
-                    {!d.budgets.length && (
-                      <div className="empty">
-                        <Target size={25} />
-                        <p>A plan for the month ahead.</p>
-                        <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
-                          Set a category budget →
-                        </button>
-                      </div>
+                  </select>
+                  <select name="category" defaultValue={d.category} aria-label="Filter category">
+                    <option value="">All categories</option>
+                    {(d.section === 'income' ? incomeCategories : d.section === 'transfers' ? ['Transfer'] : expenseCategories).map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                  <select name="sort" defaultValue={d.sort} aria-label="Sort by">
+                    <option value="date">Date</option>
+                    <option value="amount">Amount</option>
+                    <option value="description">Description</option>
+                  </select>
+                  <select name="dir" defaultValue={d.dir} aria-label="Sort direction">
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                  </select>
+                  <button className="secondary">Apply</button>
+                </Form>
+                <TransactionTable rows={d.transactions} onEdit={edit} transfers={d.section === 'transfers'} />
+                <div className="pagination">
+                  <span>{d.count ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}` : '0 transactions'}</span>
+                  <div>
+                    {d.page > 1 && (
+                      <Link to={changePage(d.page - 1)}>
+                        <ChevronLeft size={15} />
+                        Previous
+                      </Link>
+                    )}
+                    <span>Page {d.page}</span>
+                    {d.page * 20 < d.count && (
+                      <Link to={changePage(d.page + 1)}>
+                        Next
+                        <ChevronRight size={15} />
+                      </Link>
                     )}
                   </div>
-                  <div className="panel-footer">
-                    <span className="muted small">A guide, with a little breathing room.</span>
-                    <button className="text-button" onClick={() => setModal({ type: 'budget' })}>
-                      <Plus size={13} />
-                      Budget
-                    </button>
-                  </div>
-                </section>
-              </div>
-              {[
-                ['Recent expenses', d.recentExpenses, 'expenses'],
-                ['Recent income', d.recentIncome, 'income'],
-                ['Recent transfers', d.recentTransfers, 'transfers'],
-              ].map(([label, rows, section]) => (
-                <section key={String(label)} className="panel table-panel">
-                  <div className="panel-heading">
-                    <h2>{String(label)}</h2>
-                    <Link to={href(String(section))}>
-                      View all <ArrowRight size={13} />
-                    </Link>
-                  </div>
-                  <TransactionTable rows={rows as Transaction[]} onEdit={edit} transfers={section === 'transfers'} />
-                </section>
-              ))}
-            </>
-          )}
-          {d.section === 'accounts' && (
-            <>
-              <div className="section-heading">
-                <h2>
-                  Account balances <span className="muted small">All time, including future-dated records</span>
-                </h2>
-                <button className="text-button" onClick={() => setModal({ type: 'account' })}>
-                  <Plus size={15} />
-                  New account
-                </button>
-              </div>
-              <div className="account-grid standalone">
-                {d.accounts.map((account, i) => (
-                  <button className={`account-card account-${i % 3}`} key={account.id} onClick={() => setModal({ type: 'account', value: account })}>
-                    <div className="card-label">
-                      <span>{account.name}</span>
-                      <Landmark size={18} />
-                    </div>
-                    <strong className="balance">{money(account.balance)}</strong>
-                    <p>
-                      Opening {money(account.opening)} {account.archived ? '· Archived' : ''}
-                    </p>
-                  </button>
-                ))}
-              </div>
-              <p className="muted small">
-                Total account funds: {money(total)}. Includes archived accounts. This is a balance-only summary; untracked assets and liabilities are excluded.
-              </p>
-            </>
-          )}
-          {['income', 'expenses'].includes(d.section) && (
-            <div className="two-grid transaction-insights">
-              <section className="panel">
-                <div className="panel-heading">
-                  <h2>{d.section === 'income' ? 'Where it came from' : 'Where it went'}</h2>
-                  <span className="small muted">{monthName}</span>
                 </div>
-                <DeferredSpendingChart
-                  data={d.section === 'income' ? d.incomeByCategory : d.spending}
-                  total={d.section === 'income' ? d.sum.income : d.sum.expense}
-                  income={d.section === 'income'}
-                />
               </section>
-              <section className="panel">
-                <div className="panel-heading">
-                  <h2>{isIncome ? 'Income' : 'Expenses'} over time</h2>
-                  <span className="small muted">Six months to {monthName}</span>
-                </div>
-                <DeferredTrendChart data={d.trends} series={isIncome ? 'income' : 'expense'} />
-              </section>
-            </div>
-          )}
-          {['income', 'expenses', 'transfers'].includes(d.section) && (
-            <section className="panel table-panel">
-              <div className="panel-heading">
-                <h2>
-                  {title} <span className="count">{d.count}</span>
-                </h2>
-                <ExportLink className="text-button">
-                  <Download size={14} />
-                  Export all CSV
-                </ExportLink>
-              </div>
-              <Form method="get" className="filters">
-                <input type="hidden" name="view" value={d.section} />
-                <input type="hidden" name="month" value={d.month} />
-                <div className="search-field">
-                  <Search size={15} />
-                  <input name="q" defaultValue={d.q} placeholder="Search description or notes" aria-label="Search transactions" />
-                </div>
-                <select name="account" defaultValue={d.account} aria-label="Filter account">
-                  <option value="">All accounts</option>
-                  {d.accounts.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-                <select name="category" defaultValue={d.category} aria-label="Filter category">
-                  <option value="">All categories</option>
-                  {(d.section === 'income' ? incomeCategories : d.section === 'transfers' ? ['Transfer'] : expenseCategories).map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-                <select name="sort" defaultValue={d.sort} aria-label="Sort by">
-                  <option value="date">Date</option>
-                  <option value="amount">Amount</option>
-                  <option value="description">Description</option>
-                </select>
-                <select name="dir" defaultValue={d.dir} aria-label="Sort direction">
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
-                <button className="secondary">Apply</button>
-              </Form>
-              <TransactionTable rows={d.transactions} onEdit={edit} transfers={d.section === 'transfers'} />
-              <div className="pagination">
-                <span>{d.count ? `${(d.page - 1) * 20 + 1}–${Math.min(d.page * 20, d.count)} of ${d.count}` : '0 transactions'}</span>
-                <div>
-                  {d.page > 1 && (
-                    <Link to={changePage(d.page - 1)}>
-                      <ChevronLeft size={15} />
-                      Previous
-                    </Link>
-                  )}
-                  <span>Page {d.page}</span>
-                  {d.page * 20 < d.count && (
-                    <Link to={changePage(d.page + 1)}>
-                      Next
-                      <ChevronRight size={15} />
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-          {d.section === 'budgets' && (
-            <>
-              <div className="section-heading">
-                <h2>{monthName} budgets</h2>
-                <button type="button" className="secondary" onClick={() => setModal({ type: 'budget' })}>
-                  <Plus size={15} />
-                  Set budget
-                </button>
-              </div>
-              <div className="two-grid">
-                {d.budgets.map((b) => (
-                  <section className="panel budget-card" key={b.id}>
-                    <Budget budget={b} />
-                    <p className={b.spent > b.amount ? 'negative' : 'muted'}>
-                      {b.spent > b.amount ? 'Over budget by ' : 'Remaining '}
-                      {money(Math.abs(b.amount - b.spent))}
-                    </p>
-                    <div className="budget-actions">
-                      <button type="button" className="secondary" onClick={() => setModal({ type: 'budget', value: b })}>
-                        Edit limit
-                      </button>
-                      <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" buttonClassName="secondary budget-remove" />
-                    </div>
-                  </section>
-                ))}
-              </div>
-              {!d.budgets.length && <Empty text="No budgets yet. Give this month a little direction." />}
-            </>
-          )}
-          {d.section === 'subscriptions' && (
-            <>
-              <div className="section-heading">
-                <h2>Your recurring commitments</h2>
-                <button className="text-button" onClick={() => setModal({ type: 'subscription' })}>
-                  <Plus size={15} />
-                  New subscription
-                </button>
-              </div>
-              <p className="info-note">
-                <CircleHelp size={16} />
-                Active subscriptions automatically record expenses under their selected category in the selected account when you open the tracker. Missed
-                billing dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
-              </p>
-              <div className="three-grid">
-                {d.subscriptions.map((s) => (
-                  <button key={s.id} className="panel subscription-card" onClick={() => setModal({ type: 'subscription', value: s })}>
-                    <div className="card-label">
-                      <span className="summary-icon transfer">
-                        <Repeat2 size={18} />
-                      </span>
-                      <span className={`tag ${s.status === 'active' ? 'positive' : ''}`}>{s.status}</span>
-                    </div>
-                    <h2>{s.name}</h2>
-                    <strong className="balance">
-                      {money(s.amount)}
-                      <small> / {s.recurrence === 'weekly' ? 'week' : s.recurrence === 'monthly' ? 'month' : 'year'}</small>
-                    </strong>
-                    <p className="muted">
-                      {s.category} · {s.account_name}
-                    </p>
-                    <div className="panel-footer">
-                      Next due <strong>{s.next_due}</strong>
-                    </div>
+            )}
+            {d.section === 'budgets' && (
+              <>
+                <div className="section-heading">
+                  <h2>{monthName} budgets</h2>
+                  <button type="button" className="secondary" onClick={() => setModal({ type: 'budget' })}>
+                    <Plus size={15} />
+                    Set budget
                   </button>
-                ))}
-              </div>
-              {!d.subscriptions.length && <Empty text="No subscriptions yet. Add one to keep it in view." />}
-            </>
-          )}
-          {d.section === 'goals' && (
-            <>
-              <div className="section-heading">
-                <h2>Good things take a little planning</h2>
-                <button className="text-button" onClick={() => setModal({ type: 'goal' })}>
-                  <Plus size={15} />
-                  New goal
-                </button>
-              </div>
-              <p className="info-note">
-                <CircleHelp size={16} />
-                Goal contributions track allocations only. They do not move money between accounts or count as expenses. Progress is all time.
-              </p>
-              <div className="two-grid">
-                {d.goals.map((g) => (
-                  <section key={g.id} className="panel goal-card">
-                    <div className="card-label">
-                      <span className="summary-icon transfer">
-                        <Flag size={20} />
-                      </span>
-                      <button className="text-button" onClick={() => setModal({ type: 'goal', value: g })}>
-                        Edit goal
-                      </button>
-                    </div>
-                    <h2>{g.name}</h2>
-                    <strong className="balance">
-                      {money(g.saved)}
-                      <small> of {money(g.amount)}</small>
-                    </strong>
-                    <Progress value={(g.saved / g.amount) * 100} />
-                    <div className="goal-details">
-                      <span>Target {g.target_date}</span>
-                      <strong>{Math.round((g.saved / g.amount) * 100)}%</strong>
-                    </div>
-                    <button className="secondary" onClick={() => setModal({ type: 'contribute', value: g })}>
-                      <Plus size={14} />
-                      Add allocation
-                    </button>
-                  </section>
-                ))}
-              </div>
-              {!d.goals.length && <Empty text="A trip, a rainy day, a new beginning. What are you saving for?" />}
-              {d.contributions.length > 0 && (
-                <section className="panel table-panel">
-                  <div className="panel-heading">
-                    <h2>Recent goal allocations</h2>
-                    <span className="small muted">Latest 100 · all time</span>
-                  </div>
-                  <div className="table-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Goal</th>
-                          <th>Date</th>
-                          <th>Amount</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {d.contributions.map((c) => (
-                          <tr key={c.id}>
-                            <td>{c.name}</td>
-                            <td>{c.date}</td>
-                            <td>{money(c.amount)}</td>
-                            <td>
-                              <DeleteForm intent="delete_contribution" id={c.id} label="Undo allocation" />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-          {d.section === 'reports' && (
-            <>
-              <div className="report-stats">
-                <Stat label="Monthly income" value={money(d.sum.income)} />
-                <Stat label="Monthly expenses" value={money(d.sum.expense)} />
-                <Stat label="Monthly net cash flow" value={money(d.sum.income - d.sum.expense)} />
-              </div>
-              <div className="two-grid">
-                <section className="panel">
-                  <div className="panel-heading">
-                    <h2>Income & expenses</h2>
-                    <span className="small muted">6 months to {d.month}</span>
-                  </div>
-                  <DeferredTrendChart data={d.trends} />
-                </section>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <h2>Spending by category</h2>
-                  </div>
-                  <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
-                </section>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <h2>Goal allocation trends</h2>
-                  </div>
-                  <DeferredTrendChart data={d.trends} savings />
-                  <p className="chart-note">Amounts allocated to goals each month; not additional cash flow.</p>
-                </section>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <h2>Account balances at month end</h2>
-                  </div>
-                  <div className="balance-list">
-                    {d.monthBalances.map((w) => (
-                      <div key={w.id}>
-                        <span>
-                          {w.name}
-                          {w.archived ? ' · Archived' : ''}
-                        </span>
-                        <strong>{money(w.balance)}</strong>
+                </div>
+                <div className="two-grid">
+                  {d.budgets.map((b) => (
+                    <section className="panel budget-card" key={b.id}>
+                      <Budget budget={b} />
+                      <p className={b.spent > b.amount ? 'negative' : 'muted'}>
+                        {b.spent > b.amount ? 'Over budget by ' : 'Remaining '}
+                        {money(Math.abs(b.amount - b.spent))}
+                      </p>
+                      <div className="budget-actions">
+                        <button type="button" className="secondary" onClick={() => setModal({ type: 'budget', value: b })}>
+                          Edit limit
+                        </button>
+                        <DeleteForm intent="delete_budget" id={b.id} label="Remove limit" buttonClassName="secondary budget-remove" />
                       </div>
-                    ))}
-                  </div>
-                  <p className="chart-note">
-                    Opening balances plus records through {d.month} month end. A balance-only summary, excluding untracked assets and liabilities. Transfers are
-                    excluded from income and expenses.
-                  </p>
-                </section>
-              </div>
-            </>
-          )}
-          {d.section === 'import' && (
-            <section className="panel import-panel">
-              <h2>Bring your records together.</h2>
-              <p className="muted">
-                Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive {d.ledger.currency}{' '}
-                decimals, without currency symbols or thousands separators.
-              </p>
-              <code className="csv-example">
-                date,kind,description,amount,account,destination,category,notes
-                <br />
-                2026-10-01,expense,Coffee,6.50,Everyday,,Food & dining,
-              </code>
-              <p className="small muted">
-                Kinds: income, expense, transfer. Transfer category: Transfer. For transfers, supply a destination account. Other categories must match the
-                categories available in the transaction form.
-              </p>
-              <Form method="post" encType="multipart/form-data" className="form-stack">
-                <input type="hidden" name="intent" value="preview_import" />
-                <label>
-                  CSV file
-                  <input type="file" name="file" accept=".csv,text/csv" />
-                </label>
-                <label>
-                  Or paste CSV
-                  <textarea name="csv" rows={6} placeholder="Paste CSV with the required header row" />
-                </label>
-                <button className="primary" disabled={pending}>
-                  <Upload size={15} />
-                  Preview import
-                </button>
-              </Form>
-              {actionData && 'preview' in actionData && actionData.preview && (
-                <div className="import-preview">
-                  <h2>Review your import</h2>
-                  <p>
-                    {actionData.preview.length} rows · {actionData.preview.filter((r) => r.error).length} invalid ·{' '}
-                    {actionData.preview.filter((r) => r.duplicate).length} duplicates
-                  </p>
-                  <div className="table-scroll preview-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Line</th>
-                          <th>Description</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {actionData.preview.map((row) => (
-                          <tr key={row.line}>
-                            <td>{row.line}</td>
-                            <td>{row.description}</td>
-                            <td className={row.error ? 'negative' : row.duplicate ? 'muted' : 'positive'}>
-                              {row.error || (row.duplicate ? 'Duplicate — will skip' : 'Ready')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Form method="post" className="form-stack">
-                    <input type="hidden" name="intent" value="commit_import" />
-                    <input type="hidden" name="csv" value={actionData.csv} />
-                    <label>
-                      Duplicate handling
-                      <select name="policy">
-                        <option value="skip">Skip duplicate rows</option>
-                        <option value="reject">Reject entire import if duplicates exist</option>
-                      </select>
-                    </label>
-                    <button className="primary" disabled={pending || actionData.preview.some((r) => r.error)}>
-                      Confirm import
-                    </button>
-                  </Form>
-                  <p className="small muted">
-                    Duplicates match date, type, amount, description (case insensitive), accounts, category, and notes. Matching rows are treated as duplicates,
-                    even if intentional. The server validates the CSV again at confirmation; the entire import is atomic.
-                  </p>
+                    </section>
+                  ))}
                 </div>
-              )}
-              <div className="panel-footer">
-                <span>Export all transaction history</span>
-                <ExportLink className="secondary">
-                  <Download size={15} />
-                  Download CSV
-                </ExportLink>
-              </div>
-              <p className="small muted">
-                CSV exports exclude receipt files and are not a complete backup. Spreadsheet-formula prefixes are escaped for safe opening.
-              </p>
-            </section>
-          )}
-          <footer className="content-footer">
-            <span>
-              <span className="status-dot" />A little more clarity, every day.
-            </span>
-            <span>{d.ledger.currency} · Asia/Singapore</span>
-          </footer>
-        </main>
+                {!d.budgets.length && <Empty text="No budgets yet. Give this month a little direction." />}
+              </>
+            )}
+            {d.section === 'subscriptions' && (
+              <>
+                <div className="section-heading">
+                  <h2>Your recurring commitments</h2>
+                  <button className="text-button" onClick={() => setModal({ type: 'subscription' })}>
+                    <Plus size={15} />
+                    New subscription
+                  </button>
+                </div>
+                <p className="info-note">
+                  <CircleHelp size={16} />
+                  Active subscriptions automatically record expenses under their selected category in the selected account when you open the tracker. Missed
+                  billing dates are caught up. Paused, cancelled, and archived-account subscriptions are skipped.
+                </p>
+                <div className="three-grid">
+                  {d.subscriptions.map((s) => (
+                    <button key={s.id} className="panel subscription-card" onClick={() => setModal({ type: 'subscription', value: s })}>
+                      <div className="card-label">
+                        <span className="summary-icon transfer">
+                          <Repeat2 size={18} />
+                        </span>
+                        <span className={`tag ${s.status === 'active' ? 'positive' : ''}`}>{s.status}</span>
+                      </div>
+                      <h2>{s.name}</h2>
+                      <strong className="balance">
+                        {money(s.amount)}
+                        <small> / {s.recurrence === 'weekly' ? 'week' : s.recurrence === 'monthly' ? 'month' : 'year'}</small>
+                      </strong>
+                      <p className="muted">
+                        {s.category} · {s.account_name}
+                      </p>
+                      <div className="panel-footer">
+                        Next due <strong>{s.next_due}</strong>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {!d.subscriptions.length && <Empty text="No subscriptions yet. Add one to keep it in view." />}
+              </>
+            )}
+            {d.section === 'goals' && (
+              <>
+                <div className="section-heading">
+                  <h2>Good things take a little planning</h2>
+                  <button className="text-button" onClick={() => setModal({ type: 'goal' })}>
+                    <Plus size={15} />
+                    New goal
+                  </button>
+                </div>
+                <p className="info-note">
+                  <CircleHelp size={16} />
+                  Goal contributions track allocations only. They do not move money between accounts or count as expenses. Progress is all time.
+                </p>
+                <div className="two-grid">
+                  {d.goals.map((g) => (
+                    <section key={g.id} className="panel goal-card">
+                      <div className="card-label">
+                        <span className="summary-icon transfer">
+                          <Flag size={20} />
+                        </span>
+                        <button className="text-button" onClick={() => setModal({ type: 'goal', value: g })}>
+                          Edit goal
+                        </button>
+                      </div>
+                      <h2>{g.name}</h2>
+                      <strong className="balance">
+                        {money(g.saved)}
+                        <small> of {money(g.amount)}</small>
+                      </strong>
+                      <Progress value={(g.saved / g.amount) * 100} />
+                      <div className="goal-details">
+                        <span>Target {g.target_date}</span>
+                        <strong>{Math.round((g.saved / g.amount) * 100)}%</strong>
+                      </div>
+                      <button className="secondary" onClick={() => setModal({ type: 'contribute', value: g })}>
+                        <Plus size={14} />
+                        Add allocation
+                      </button>
+                    </section>
+                  ))}
+                </div>
+                {!d.goals.length && <Empty text="A trip, a rainy day, a new beginning. What are you saving for?" />}
+                {d.contributions.length > 0 && (
+                  <section className="panel table-panel">
+                    <div className="panel-heading">
+                      <h2>Recent goal allocations</h2>
+                      <span className="small muted">Latest 100 · all time</span>
+                    </div>
+                    <div className="table-scroll">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Goal</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.contributions.map((c) => (
+                            <tr key={c.id}>
+                              <td>{c.name}</td>
+                              <td>{c.date}</td>
+                              <td>{money(c.amount)}</td>
+                              <td>
+                                <DeleteForm intent="delete_contribution" id={c.id} label="Undo allocation" />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+            {d.section === 'reports' && (
+              <>
+                <div className="report-stats">
+                  <Stat label="Monthly income" value={money(d.sum.income)} />
+                  <Stat label="Monthly expenses" value={money(d.sum.expense)} />
+                  <Stat label="Monthly net cash flow" value={money(d.sum.income - d.sum.expense)} />
+                </div>
+                <div className="two-grid">
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Income & expenses</h2>
+                      <span className="small muted">6 months to {d.month}</span>
+                    </div>
+                    <DeferredTrendChart data={d.trends} />
+                  </section>
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Spending by category</h2>
+                    </div>
+                    <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
+                  </section>
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Goal allocation trends</h2>
+                    </div>
+                    <DeferredTrendChart data={d.trends} savings />
+                    <p className="chart-note">Amounts allocated to goals each month; not additional cash flow.</p>
+                  </section>
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <h2>Account balances at month end</h2>
+                    </div>
+                    <div className="balance-list">
+                      {d.monthBalances.map((w) => (
+                        <div key={w.id}>
+                          <span>
+                            {w.name}
+                            {w.archived ? ' · Archived' : ''}
+                          </span>
+                          <strong>{money(w.balance)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="chart-note">
+                      Opening balances plus records through {d.month} month end. A balance-only summary, excluding untracked assets and liabilities. Transfers
+                      are excluded from income and expenses.
+                    </p>
+                  </section>
+                </div>
+              </>
+            )}
+            <footer className="content-footer">
+              <span>
+                <span className="status-dot" />A little more clarity, every day.
+              </span>
+              <span>{d.ledger.currency} · Asia/Singapore</span>
+            </footer>
+          </main>
+        )}
       </div>
-      {settingsOpen && (
-        <UserSettings
-          profile={d.profile}
-          ledger={d.ledger}
-          ledgers={d.ledgers}
-          close={() => setSettingsOpen(false)}
-          reset={() => {
-            setSettingsOpen(false);
-            setModal({ type: 'reset_ledger' });
-          }}
-        />
-      )}
       {modal?.type === 'categories' && (
         <CategoryManager
           data={d}
@@ -1314,12 +1408,14 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
 }
 
 function CategoryManager({
+  inline = false,
   data,
   close,
   edit,
   create,
   pending,
 }: {
+  inline?: boolean;
   data: DashboardData;
   close: () => void;
   edit: (value: { id: string; name: string; kind: string }) => void;
@@ -1330,83 +1426,85 @@ function CategoryManager({
   const dialog = useRef<HTMLDialogElement>(null);
   const fetcher = useFetcher<typeof action>();
   useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
-  return (
-    <dialog
-      ref={dialog}
-      className="editor"
-      aria-label="Manage categories"
-      onCancel={close}
-      onClick={(e) => {
-        if (e.target === dialog.current) {
-          close();
-        }
-      }}>
-      <div className="editor-inner">
-        <div className="panel-heading">
-          <h2>Categories</h2>
+    if (!inline) {
+      dialog.current?.showModal();
+    }
+  }, [inline]);
+  const content = (
+    <div className="editor-inner">
+      <div className="panel-heading">
+        <h2>Categories</h2>
+        {!inline && (
           <button className="icon-button" onClick={close} aria-label="Close categories">
             <X size={19} />
           </button>
-        </div>
-        <p className="small muted">
-          Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the fallback and cannot be changed.
-        </p>
-        <div className="category-list">
-          {(['expense', 'income'] as const).map((kind) => (
-            <section key={kind}>
-              <h2>{kind === 'expense' ? 'Expenses' : 'Income'}</h2>
-              {data.categories
-                .filter((c) => c.kind === kind)
-                .map((c) => (
-                  <div className="category-row" key={c.id}>
-                    <span>{c.name}</span>
-                    {c.name !== 'Other' && (
-                      <div className="category-actions">
-                        <button className="text-button" disabled={pending || fetcher.state !== 'idle'} onClick={() => edit(c)}>
-                          Edit
+        )}
+      </div>
+      <p className="small muted">
+        Deleting moves transactions and budgets to Other. Overlapping budget limits are added together. Other is the fallback and cannot be changed.
+      </p>
+      <div className="category-list">
+        {(['expense', 'income'] as const).map((kind) => (
+          <section key={kind}>
+            <h2>{kind === 'expense' ? 'Expenses' : 'Income'}</h2>
+            {data.categories
+              .filter((c) => c.kind === kind)
+              .map((c) => (
+                <div className="category-row" key={c.id}>
+                  <span>{c.name}</span>
+                  {c.name !== 'Other' && (
+                    <div className="category-actions">
+                      <button className="text-button" disabled={pending || fetcher.state !== 'idle'} onClick={() => edit(c)}>
+                        Edit
+                      </button>
+                      <fetcher.Form
+                        method="post"
+                        onSubmit={(e) => {
+                          if (!confirm('Delete "' + c.name + '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.')) {
+                            e.preventDefault();
+                          }
+                        }}>
+                        <input type="hidden" name="intent" value="delete_category" />
+                        <input type="hidden" name="id" value={c.id} />
+                        <button className="text-button negative" disabled={fetcher.state !== 'idle'}>
+                          Delete
                         </button>
-                        <fetcher.Form
-                          method="post"
-                          onSubmit={(e) => {
-                            if (!confirm('Delete "' + c.name + '"? Its transactions and budgets will move to Other. Overlapping budgets will be combined.')) {
-                              e.preventDefault();
-                            }
-                          }}>
-                          <input type="hidden" name="intent" value="delete_category" />
-                          <input type="hidden" name="id" value={c.id} />
-                          <button className="text-button negative" disabled={fetcher.state !== 'idle'}>
-                            Delete
-                          </button>
-                        </fetcher.Form>
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </section>
-          ))}
-        </div>
-        {fetcher.data?.error && (
-          <p className="error" role="alert">
-            {fetcher.data.error}
-          </p>
-        )}
-        {fetcher.data?.message && (
-          <p className="small" role="status">
-            {fetcher.data.message}
-          </p>
-        )}
-        <div className="editor-actions">
+                      </fetcher.Form>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </section>
+        ))}
+      </div>
+      {fetcher.data?.error && (
+        <p className="error" role="alert">
+          {fetcher.data.error}
+        </p>
+      )}
+      {fetcher.data?.message && (
+        <p className="small" role="status">
+          {fetcher.data.message}
+        </p>
+      )}
+      <div className="editor-actions">
+        {!inline && (
           <button className="secondary" onClick={close}>
             Done
           </button>
-          <button className="primary" onClick={create} disabled={fetcher.state !== 'idle'}>
-            <Plus size={14} />
-            New category
-          </button>
-        </div>
+        )}
+        <button className="primary" onClick={create} disabled={fetcher.state !== 'idle'}>
+          <Plus size={14} />
+          New category
+        </button>
       </div>
+    </div>
+  );
+  return inline ? (
+    <section className="panel settings-categories">{content}</section>
+  ) : (
+    <dialog ref={dialog} className="editor" aria-label="Manage categories" onCancel={close}>
+      {content}
     </dialog>
   );
 }

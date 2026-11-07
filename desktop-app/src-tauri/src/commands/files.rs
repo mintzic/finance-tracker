@@ -174,14 +174,18 @@ pub async fn upload_cover(app: tauri::AppHandle, request: tauri::ipc::Request<'_
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         _ => return Err("Cover upload requires a raw binary body.".into()),
     };
-    let mut connection = {
+    let ledger = {
         let state = app.state::<std::sync::Mutex<crate::storage::Storage>>();
-        let storage = locked(&state)?;
-        storage.connection()?
+        locked(&state)?.settings()?["ledger"]["id"].clone()
     };
     tauri::async_runtime::spawn_blocking(move || {
         let (bytes, mime) = optimize_cover(&bytes)?;
-        transaction(&mut connection, &json!({}), |c, _| store_cover(c, &bytes, mime))
+        let state = app.state::<std::sync::Mutex<crate::storage::Storage>>();
+        let storage = locked(&state)?;
+        if storage.settings()?["ledger"]["id"] != ledger {
+            return Err("The selected ledger changed. Retry the cover upload.".into());
+        }
+        transaction(&mut storage.connection()?, &json!({}), |c, _| store_cover(c, &bytes, mime))
     })
     .await
     .map_err(|e| format!("Cover processing failed: {e}"))?

@@ -31,6 +31,10 @@ export const bridge = {
   deleteLedger: (form: SerializedForm) => invoke<SettingsData>('delete_ledger', { form }),
   asset: (kind: 'receipt' | 'cover', id: string) => invoke<NativeAsset>('asset', { kind, id }),
   exportCsv: () => invoke<string>('export_csv', {}),
+  exportBackup: () => invoke<unknown>('export_backup', {}),
+  restoreBackup: (backup: unknown, confirmation: string) => invoke<ActionResult>('restore_backup', { backup, confirmation }),
+  exportTableCsv: (table: 'transactions' | 'accounts' | 'categories' | 'budgets' | 'subscriptions' | 'goals' | 'contributions') =>
+    invoke<string>('export_table_csv', { table }),
   importLegacy: (source: string, confirmation: string) => invoke<ActionResult>('import_legacy', { source, confirmation }),
 };
 

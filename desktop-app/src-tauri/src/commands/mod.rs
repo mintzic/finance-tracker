@@ -1,4 +1,5 @@
 mod accounts;
+mod backup;
 mod budgets;
 mod categories;
 mod files;
@@ -17,6 +18,9 @@ mod tests;
 mod transactions;
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        backup::export_backup,
+        backup::restore_backup,
+        backup::export_table_csv,
         overview::dashboard,
         profile::update_profile,
         ledgers::settings,

@@ -12,7 +12,7 @@
   --color-border: var(--theme-border);
   --color-ring: var(--theme-accent);
   --color-muted: var(--theme-surface);
-  --color-muted-foreground: var(--theme-surface);
+  --color-muted-foreground: var(--theme-muted);
   --radius-lg: 0.75rem;
 }
 :root {
@@ -683,6 +683,20 @@ nav .active-dot {
   letter-spacing: -0.7px;
   margin-top: 8px;
 }
+.donut-label .donut-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  white-space: nowrap;
+}
+.donut-label .donut-amount-text {
+  flex-shrink: 0;
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+  transform-origin: center;
+}
 .donut-label span {
   font-size: 9px;
   color: var(--theme-muted);
@@ -752,7 +766,7 @@ nav .active-dot {
 }
 .progress {
   height: 4px;
-  background: var(--theme-surface);
+  background: color-mix(in srgb, var(--theme-text) 16%, var(--theme-surface));
   border-radius: 3px;
   margin: 9px 0;
   overflow: hidden;
@@ -763,17 +777,18 @@ nav .active-dot {
   border-radius: 3px;
   background: var(--theme-accent);
 }
-.progress.over > span {
-  background: var(--theme-negative);
-}
 .budget:nth-child(2) .progress > span {
   background: var(--theme-positive);
 }
 .budget:nth-child(3) .progress > span {
-  background: var(--theme-surface);
+  background: color-mix(in srgb, var(--theme-accent) 70%, var(--theme-text));
 }
 .budget:nth-child(4) .progress > span {
-  background: var(--theme-surface);
+  background: var(--theme-muted);
+}
+.progress.over > span,
+.budget .progress.over > span {
+  background: var(--theme-negative);
 }
 .budget p {
   display: flex;
@@ -2173,4 +2188,209 @@ input[type='range'] {
   .theme-color-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Component appearance controls live outside chart and table overflow areas. */
+.component-appearance {
+  min-width: 0;
+}
+.component-appearance-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 17px;
+}
+.component-appearance-toolbar > .icon-button {
+  width: 28px;
+  height: 28px;
+}
+.component-appearance-dialog {
+  text-align: left;
+  white-space: normal;
+  font-family: inherit;
+}
+.component-appearance-controls {
+  margin: 18px 0;
+}
+.component-appearance-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.component-appearance-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--theme-accent);
+}
+.component-appearance-color {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.component-appearance-color label {
+  flex: 1;
+}
+.component-appearance-color input {
+  display: block;
+  width: 100%;
+  height: 34px;
+}
+.spending-appearance .without-legend {
+  justify-content: center;
+}
+.spending-appearance .donut {
+  flex-shrink: 0;
+  display: flow-root;
+}
+.spending-appearance .spending-content {
+  min-height: 0;
+}
+.spending-appearance .donut-empty-ring {
+  box-sizing: border-box;
+}
+.appearance-table table {
+  min-width: 480px;
+}
+.appearance-table td,
+.appearance-table .transaction-name strong,
+.appearance-table .tag,
+.appearance-table .amount {
+  font-size: var(--table-font-size);
+}
+.appearance-table th {
+  font-size: max(9px, calc(var(--table-font-size) - 1px));
+}
+.appearance-table.compact td {
+  padding: 7px 14px;
+}
+.appearance-table.compact th {
+  padding: 7px 14px;
+}
+.appearance-table.striped tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--theme-text) 4%, var(--theme-surface));
+}
+.appearance-table.no-dividers td {
+  border-bottom: none;
+}
+
+.component-appearance-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(300px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  font-family: inherit;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 32px #0003;
+}
+.component-appearance-popover::backdrop {
+  background: transparent;
+}
+.component-appearance-popover .editor-inner {
+  padding: 14px;
+}
+.component-appearance-popover .panel-heading {
+  padding: 0;
+  margin-bottom: 10px;
+}
+.component-appearance-popover h2 {
+  font-size: 13px;
+}
+.component-appearance-popover .small {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.component-appearance-popover .component-appearance-controls {
+  gap: 2px;
+  margin: 10px 0;
+}
+.component-appearance-popover .form-stack label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 3px 0;
+  font-size: 11px;
+  text-align: left;
+}
+.component-appearance-popover .form-stack select {
+  width: 132px;
+  min-width: 0;
+  min-height: 26px;
+  padding: 4px 24px 4px 8px;
+  font-size: 11px;
+}
+.component-appearance-popover .form-stack input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 14px;
+}
+.component-appearance-popover .component-appearance-color {
+  align-items: center;
+  gap: 8px;
+}
+.component-appearance-popover .component-appearance-color label {
+  flex: 1;
+}
+.component-appearance-popover .component-appearance-color input[type='color'] {
+  width: 28px;
+  height: 24px;
+  min-height: 0;
+  padding: 2px;
+  flex: 0 0 28px;
+}
+.component-appearance-popover .component-appearance-color button {
+  padding: 4px 6px;
+  font-size: 9px;
+}
+.component-appearance-popover .editor-actions {
+  margin-top: 14px;
+  padding-top: 12px;
+  gap: 8px;
+}
+.component-appearance-popover .editor-actions button {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+
+.data-transfer-settings .editor-actions {
+  margin: 0;
+  padding: 0;
+  justify-content: flex-start;
+}
+.data-transfer-settings > form + form {
+  border-top: 1px solid var(--theme-border);
+  padding-top: 24px;
+  margin-top: 8px;
+}
+.data-transfer-settings .form-stack label.component-appearance-toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.data-transfer-settings .component-appearance-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.data-transfer-settings form > button {
+  align-self: flex-start;
+}
+.data-transfer-settings h3 {
+  font-size: 14px;
+  font-weight: 550;
 }

@@ -99,10 +99,12 @@ Receipts support PDF/PNG/JPEG.
 
 Cover upload uses `invoke('upload_cover', uint8Array)` with a raw `Uint8Array`
 body, **not** `{form}` or a JSON byte array. The async command copies the raw
-body and opens the initiating ledger's connection under a brief storage
-mutex lock. It moves that connection into `spawn_blocking`, where decoding,
-resizing, and encoding run without the global lock, before starting the database
-transaction. Ledger switches cannot redirect an in-flight upload. JSON requests
+body and captures the initiating ledger ID under a brief storage mutex lock.
+Decoding, resizing, and encoding run in `spawn_blocking` without the global lock.
+The task then reacquires the mutex, opens a fresh connection, and holds the lock
+through the database transaction, serializing with backup/restore. If the selected
+ledger changed during decoding, the upload fails with a retry message instead of
+writing to a different ledger. JSON requests
 are rejected. The test-only `upload_cover_operation` accepts the historical
 `cover.bytes` form and shares the same optimizer.
 
@@ -130,6 +132,59 @@ the current version (or `"1"` for the current cover). It returns
 `{bytes, mime, filename}`. Unknown kinds and missing/stale IDs error. Cover
 positioning requires the current `version`. Legacy external receipt files are
 served only after legacy import copies their bytes into native storage.
+
+## Full backup/restore and viewing exports
+
+Registered by `commands::handler()` installed in `lib.rs`:
+
+- `export_backup() -> Result<serde_json::Value, String>`
+- `restore_backup(backup: Value, confirmation: String) -> Result<Value, String>`;
+  confirmation must be exactly `RESTORE`. Success returns `{message, warning}`.
+- `export_table_csv(table: String) -> Result<String, String>`; exact allowlist:
+  `transactions`, `accounts`, `categories`, `budgets`, `subscriptions`, `goals`,
+  `contributions`. This exports the active ledger only. Existing `export_csv`
+  remains unchanged for compatibility.
+
+Backup v1 is `{format: "folio-full-backup", version: 1, registry: number[],
+ledgers: [{id: UUID, database: number[]}]}`. Byte arrays contain SQLite backup-API
+snapshots, not live file copies. Registry includes profile, all ledger metadata,
+and app settings; each ledger includes every table/record, receipt bytes and
+cover bytes/position. No billing or other business mutations are run by export.
+Frontend localStorage is excluded; the frontend owns its envelope and WebCrypto
+encryption. Backend backup payloads and local recovery copies are **unencrypted**.
+
+Limits: **128 MiB compact serialized backend JSON**, **32 MiB per SQLite
+snapshot**, **1–256 ledgers**. JSON arrays substantially expand binary size and
+parsed JSON consumes additional memory. Frontend should enforce the backend
+payload limit before IPC, plus separate bounds for its encryption/localStorage
+envelope; the backend cannot prevent Tauri from initially parsing an oversized
+request. Encryption overhead is outside the backend payload limit.
+
+Restore stages and validates everything before changing live files: exact
+current trusted SQLite schema (including indexes/triggers; no extra executable
+schema objects), exact migration names/checksums, integrity/foreign keys,
+canonical UUIDs, registry relationships, complete ledger set, receipt presence
+and size, header/version/size limits. Unknown manifest fields are rejected.
+Only backend-generated paths are used. Older/future or manually customized
+schemas are deliberately rejected rather than migrated or executed. Legacy
+external receipt/cover source files and historical/deleted database backups are
+not active data and are not included; imported assets already live in BLOBs.
+
+Application commands serialize through the storage mutex, including cover
+writes. This consistency guarantee does not cover external SQLite writers or
+multiple application processes. Before replacement, restore writes and syncs
+`recovery-<uuid>/backup.json`, then retains original databases and sidecars in
+`recovery-<uuid>/originals`. A failed swap/post-install check rolls back; rollback
+failure reports the recovery location. Recovery artifacts are intentionally not
+automatically deleted. Keep sufficient disk space for staging and recovery.
+The multi-file rename sequence is not power-loss/process-crash atomic; interrupted
+restores may require manual recovery using those retained files. No automatic
+startup replay is implemented.
+
+Viewing CSV includes a UTF-8 BOM, CRLF records, column headers, proper quoting,
+and formula-injection protection for text. Monetary integer minor units become
+decimal strings. Foreign keys remain IDs. These are viewing exports, **not a
+restore/import format**; no corresponding table import command exists.
 
 ## Validation
 

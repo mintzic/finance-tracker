@@ -8,6 +8,8 @@ use std::{
 };
 use uuid::Uuid;
 
+mod full_backup;
+
 type R<T> = Result<T, String>;
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()

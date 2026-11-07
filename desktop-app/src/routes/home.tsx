@@ -27,11 +27,14 @@ import {
   Menu,
   Target,
   UserRound,
+  Eye,
+  EyeOff,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useLoaderData, useActionData, type LoaderFunctionArgs, type ActionFunctionArgs } from 'react-router';
 import { bridge, serializeForm, errorMessage } from '@/lib/bridge';
 import type { DashboardData, ActionResult } from '@/lib/types';
+import { DataTransferSettings } from '@/components/data-transfer-settings';
 import { ExportLink } from '@/components/native-assets';
 
 import { decimal, today } from '@/lib/money';
@@ -181,14 +184,41 @@ type Modal = {
 export default function Home() {
   const d = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const [privacy, setPrivacy] = useState(() => {
+    try {
+      return localStorage.getItem('folio.privacy') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const togglePrivacy = () => {
+    const next = !privacy;
+    setPrivacy(next);
+    try {
+      localStorage.setItem('folio.privacy', String(next));
+    } catch {
+      /* Privacy still applies for this session when storage is unavailable. */
+    }
+  };
   return (
     <Preferences.Provider value={{ language: d.profile.language, currency: d.ledger.currency }}>
-      <HomeContent key={d.ledger.id} loaderData={d} actionData={actionData} />
+      <HomeContent key={d.ledger.id} loaderData={d} actionData={actionData} privacy={privacy} togglePrivacy={togglePrivacy} />
     </Preferences.Provider>
   );
 }
-function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData; actionData?: ActionResult }) {
+function HomeContent({
+  loaderData: d,
+  actionData,
+  privacy,
+  togglePrivacy,
+}: {
+  loaderData: DashboardData;
+  actionData?: ActionResult;
+  privacy: boolean;
+  togglePrivacy: () => void;
+}) {
   const money = useMoney();
+  const privateMoney = (value: number) => (privacy ? '***' : money(value));
   const t = (text: string) => translate(d.profile.language, text);
   const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
@@ -299,7 +329,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                     ['profile', 'Profile', UserRound],
                     ['appearance', 'Appearance', SlidersHorizontal],
                     ['categories', 'Categories', SlidersHorizontal],
-                    ['import', 'Import & export', Upload],
+                    ['import', 'Export & backup', Upload],
                     ['data', 'Data & reset', SettingsIcon],
                   ] as const
                 ).map(([key, label, Icon]) => (
@@ -331,7 +361,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                       : settingsSection === 'categories'
                         ? 'Categories'
                         : settingsSection === 'import'
-                          ? 'Import & export'
+                          ? 'Export & backup'
                           : settingsSection === 'data'
                             ? 'Data & reset'
                             : 'Your profile'}
@@ -372,98 +402,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                   </button>
                 </section>
               )}
-              {settingsSection === 'import' && (
-                <section className="panel import-panel">
-                  <h2>Bring your records together.</h2>
-                  <p className="muted">
-                    Preview and validate up to 1,000 rows (1 MB). Account names must match exactly. Dates use YYYY-MM-DD; amounts use positive{' '}
-                    {d.ledger.currency} decimals, without currency symbols or thousands separators.
-                  </p>
-                  <code className="csv-example">
-                    date,kind,description,amount,account,destination,category,notes
-                    <br />
-                    2026-10-01,expense,Coffee,6.50,Everyday,,Food & dining,
-                  </code>
-                  <p className="small muted">
-                    Kinds: income, expense, transfer. Transfer category: Transfer. For transfers, supply a destination account. Other categories must match the
-                    categories available in the transaction form.
-                  </p>
-                  <Form method="post" encType="multipart/form-data" className="form-stack">
-                    <input type="hidden" name="intent" value="preview_import" />
-                    <label>
-                      CSV file
-                      <input type="file" name="file" accept=".csv,text/csv" />
-                    </label>
-                    <label>
-                      Or paste CSV
-                      <textarea name="csv" rows={6} placeholder="Paste CSV with the required header row" />
-                    </label>
-                    <button className="primary" disabled={pending}>
-                      <Upload size={15} />
-                      Preview import
-                    </button>
-                  </Form>
-                  {actionData && 'preview' in actionData && actionData.preview && (
-                    <div className="import-preview">
-                      <h2>Review your import</h2>
-                      <p>
-                        {actionData.preview.length} rows · {actionData.preview.filter((r) => r.error).length} invalid ·{' '}
-                        {actionData.preview.filter((r) => r.duplicate).length} duplicates
-                      </p>
-                      <div className="table-scroll preview-scroll">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Line</th>
-                              <th>Description</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {actionData.preview.map((row) => (
-                              <tr key={row.line}>
-                                <td>{row.line}</td>
-                                <td>{row.description}</td>
-                                <td className={row.error ? 'negative' : row.duplicate ? 'muted' : 'positive'}>
-                                  {row.error || (row.duplicate ? 'Duplicate — will skip' : 'Ready')}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <Form method="post" className="form-stack">
-                        <input type="hidden" name="intent" value="commit_import" />
-                        <input type="hidden" name="csv" value={actionData.csv} />
-                        <label>
-                          Duplicate handling
-                          <select name="policy">
-                            <option value="skip">Skip duplicate rows</option>
-                            <option value="reject">Reject entire import if duplicates exist</option>
-                          </select>
-                        </label>
-                        <button className="primary" disabled={pending || actionData.preview.some((r) => r.error)}>
-                          Confirm import
-                        </button>
-                      </Form>
-                      <p className="small muted">
-                        Duplicates match date, type, amount, description (case insensitive), accounts, category, and notes. Matching rows are treated as
-                        duplicates, even if intentional. The server validates the CSV again at confirmation; the entire import is atomic.
-                      </p>
-                    </div>
-                  )}
-                  <div className="panel-footer">
-                    <span>Export all transaction history</span>
-                    <ExportLink className="secondary">
-                      <Download size={15} />
-                      Download CSV
-                    </ExportLink>
-                  </div>
-                  <p className="small muted">
-                    CSV exports exclude receipt files and are not a complete backup. Spreadsheet-formula prefixes are escaped for safe opening.
-                  </p>
-                </section>
-              )}
+              {settingsSection === 'import' && <DataTransferSettings />}
             </section>
           </main>
         ) : managingLedgers ? (
@@ -563,6 +502,15 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                   <h2>
                     <AccountIcon size={17} />
                     Your accounts <span className="count">{d.accounts.filter((w) => !w.archived).length}</span>
+                    <button
+                      type="button"
+                      className="icon-button privacy-toggle"
+                      onClick={togglePrivacy}
+                      aria-pressed={privacy}
+                      aria-label={privacy ? 'Show dashboard balances and summary' : 'Hide dashboard balances and summary'}
+                      title={privacy ? 'Show amounts' : 'Privacy mode: hide amounts'}>
+                      {privacy ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </h2>
                   <Link to={href('accounts')}>
                     Manage accounts <ArrowRight size={14} />
@@ -574,7 +522,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                       <span>Total account funds</span>
                       <span className="mini-symbol">∑</span>
                     </div>
-                    <strong className="balance">{money(total)}</strong>
+                    <strong className="balance">{privateMoney(total)}</strong>
                     <p>
                       <span className="status-dot" />
                       All recorded balances · {d.ledger.currency}
@@ -588,7 +536,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                           <span>{account.name}</span>
                           {i === 0 ? <Landmark size={18} /> : i === 1 ? <CreditCard size={18} /> : <Coins size={18} />}
                         </div>
-                        <strong className="balance">{money(account.balance)}</strong>
+                        <strong className="balance">{privateMoney(account.balance)}</strong>
                         <p>
                           Current balance <ArrowUpRight size={13} />
                         </p>
@@ -602,7 +550,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                     </span>
                     <span>
                       <small>Income this month</small>
-                      <strong>{money(d.sum.income)}</strong>
+                      <strong>{privateMoney(d.sum.income)}</strong>
                     </span>
                   </div>
                   <div>
@@ -611,7 +559,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                     </span>
                     <span>
                       <small>Expenses this month</small>
-                      <strong>{money(d.sum.expense)}</strong>
+                      <strong>{privateMoney(d.sum.expense)}</strong>
                     </span>
                   </div>
                   <div>
@@ -620,7 +568,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                     </span>
                     <span>
                       <small>Net cash flow</small>
-                      <strong className={d.sum.income - d.sum.expense >= 0 ? 'positive' : 'negative'}>{money(d.sum.income - d.sum.expense)}</strong>
+                      <strong className={d.sum.income - d.sum.expense >= 0 ? 'positive' : 'negative'}>{privateMoney(d.sum.income - d.sum.expense)}</strong>
                     </span>
                   </div>
                   <p>

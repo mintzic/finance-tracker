@@ -42,6 +42,41 @@ export function ProfileSettings({ profile }: { profile: Profile }) {
   );
 }
 
+export function LegacyImportSettings() {
+  const fetcher = useFetcher<ActionResult>();
+  const pending = fetcher.state !== 'idle';
+
+  return (
+    <fetcher.Form method="post" action="/settings" className="panel form-stack">
+      <h2>Import legacy data</h2>
+      <input type="hidden" name="intent" value="import_legacy" />
+      <p>
+        Import from the previous Electron app before customizing your default profile or ledger or entering financial records. Quit the old app and back up its
+        entire data directory first. The destination must be an unused Default ledger; original files are left unchanged.
+      </p>
+      <label>
+        Old data directory
+        <input name="source" required placeholder="/Users/you/Library/Application Support/Finance Tracker" />
+      </label>
+      <p className="small muted">Enter the full path to the folder containing finance.sqlite and any profiles and receipts folders, not the database file.</p>
+      <label>
+        Type IMPORT to confirm
+        <input name="confirmation" required pattern="IMPORT" autoComplete="off" />
+      </label>
+      {fetcher.data?.error && (
+        <p className="error" role="alert">
+          {fetcher.data.error}
+        </p>
+      )}
+      {fetcher.data?.message && <p role="status">{fetcher.data.message}</p>}
+      {fetcher.data?.warning && <p role="alert">{fetcher.data.warning}</p>}
+      <button className="secondary" disabled={pending}>
+        {pending ? 'Importing legacy data…' : 'Import legacy data'}
+      </button>
+    </fetcher.Form>
+  );
+}
+
 export function SettingsForms({ settings }: { settings: SettingsData }) {
   const { profile, ledger, ledgers, defaultCurrency } = settings;
   const fetcher = useFetcher<ActionResult>();
@@ -139,25 +174,7 @@ export function SettingsForms({ settings }: { settings: SettingsData }) {
           </fetcher.Form>
         </section>
       ))}
-      <fetcher.Form method="post" action="/settings" className="panel form-stack">
-        <h2>Import legacy data</h2>
-        {intent('import_legacy')}
-        <p>
-          Import before entering financial data. The default target ledger must be empty; the backend rejects a nonempty target. Quit the old app first. Choose
-          its data directory containing finance.sqlite, profiles, and receipts. Backup copies are created and originals are left unchanged.
-        </p>
-        <label>
-          Old data directory
-          <input name="source" required placeholder="/Users/you/Library/Application Support/Finance Tracker" />
-        </label>
-        <label>
-          Type IMPORT to confirm
-          <input name="confirmation" required pattern="IMPORT" autoComplete="off" />
-        </label>
-        <button className="secondary" disabled={pending}>
-          Import legacy data
-        </button>
-      </fetcher.Form>
+      <LegacyImportSettings />
     </>
   );
 }

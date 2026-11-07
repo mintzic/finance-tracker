@@ -44,7 +44,7 @@ import { Button } from '@/components/ui/button';
 import { LedgerCover } from '@/components/ledger-cover';
 import type { Transaction } from '@/lib/types';
 import catIcon from '@/assets/icon.png';
-import { ProfileSettings } from '@/components/user-settings';
+import { LegacyImportSettings, ProfileSettings } from '@/components/user-settings';
 import { AppearanceSettings } from '@/components/appearance-settings';
 import { LedgerSwitcher, LedgerManager } from '@/components/ledger-switcher';
 
@@ -402,7 +402,12 @@ function HomeContent({
                   </button>
                 </section>
               )}
-              {settingsSection === 'import' && <DataTransferSettings />}
+              {settingsSection === 'import' && (
+                <>
+                  <DataTransferSettings />
+                  <LegacyImportSettings />
+                </>
+              )}
             </section>
           </main>
         ) : managingLedgers ? (
@@ -479,7 +484,7 @@ function HomeContent({
                   <Cat size={30} strokeWidth={1.5} aria-hidden="true" />
                   <h2>Make yourself at home.</h2>
                   <p className="muted">Create your first account, or explore with clearly labelled fictional demo data.</p>
-                  <Link to="/settings" className="text-button">
+                  <Link to="/?view=settings&section=import" className="text-button">
                     Import legacy data before entering financial records
                   </Link>
                 </div>

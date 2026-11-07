@@ -30,6 +30,12 @@ Data lives under Tauri's application-data directory for `com.mintzic.folio` (on 
 
 The original eight SQL migrations are embedded with matching SHA-256 checksums. Receipts are stored transactionally in SQLite's `native_files` table; covers retain the original blob schema. Never edit migration files after they have been applied. Back up the whole application-data directory while Folio is closed.
 
+## Header image uploads
+
+Cover uploads no longer have a 5 MB file-size limit. They use binary Tauri IPC rather than JSON byte arrays. The Rust backend validates PNG/JPEG/WebP images and optimizes them on a background worker before saving: at most 2560 × 1440 pixels, preserving aspect ratio without upscaling, JPEG quality 85 or PNG when an alpha channel is present. Re-encoding strips metadata. Only the optimized image is stored and displayed; failed processing leaves the existing cover intact.
+
+Large compressed files, including files over 100 MB, can be accepted, but decoding is guarded by 32,768 pixels per axis, 100 million total pixels, and a 512 MiB decoder allocation budget. These are decoder safeguards, not a total process-memory cap; initial upload still needs memory and time. Receipt uploads retain their 5 MB limit. Existing saved covers are not automatically reprocessed; upload them again to optimize them.
+
 ## Importing Electron data
 
 1. Quit the old Electron app and make your own backup of its entire data directory.

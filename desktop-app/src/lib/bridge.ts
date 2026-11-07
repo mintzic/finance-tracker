@@ -18,7 +18,7 @@ export const bridge = {
   deleteContribution: (form: SerializedForm) => invoke<ActionResult>('delete_contribution', { form }),
   previewImport: (form: SerializedForm) => invoke<ActionResult>('preview_import', { form }),
   commitImport: (form: SerializedForm) => invoke<ActionResult>('commit_import', { form }),
-  uploadCover: (form: SerializedForm) => invoke<ActionResult>('upload_cover', { form }),
+  uploadCover: async (file: File) => invoke<ActionResult>('upload_cover', new Uint8Array(await file.arrayBuffer())),
   removeCover: (form: SerializedForm) => invoke<ActionResult>('remove_cover', { form }),
   positionCover: (form: SerializedForm) => invoke<ActionResult>('position_cover', { form }),
   resetWorkspace: (form: SerializedForm) => invoke<ActionResult>('reset_workspace', { form }),
@@ -33,11 +33,17 @@ export const bridge = {
 };
 
 export function errorMessage(error: unknown): string {
-  if (error instanceof Error) {return error.message;}
+  if (error instanceof Error) {
+    return error.message;
+  }
 
-  if (typeof error === 'string') {return error;}
+  if (typeof error === 'string') {
+    return error;
+  }
 
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {return error.message;}
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
 
   return 'Unable to complete the request. Please try again.';
 }
@@ -51,7 +57,9 @@ export async function serializeForm(data: FormData): Promise<SerializedForm> {
     size += bytes;
     const csv = key === 'csv' || key === 'file';
 
-    if (csv && bytes > 1024 * 1024) {throw new Error('CSV must be at most 1 MB.');}
+    if (csv && bytes > 1024 * 1024) {
+      throw new Error('CSV must be at most 1 MB.');
+    }
 
     if (typeof value !== 'string' && bytes > 5 * 1024 * 1024) {
       throw new Error('File must be no larger than 5 MB.');
@@ -60,7 +68,9 @@ export async function serializeForm(data: FormData): Promise<SerializedForm> {
     fields.push([key, value]);
   });
 
-  if (size > 6 * 1024 * 1024) {throw new Error('Request exceeds 6 MB.');}
+  if (size > 6 * 1024 * 1024) {
+    throw new Error('Request exceeds 6 MB.');
+  }
 
   for (const [key, value] of fields) {
     form[key] =

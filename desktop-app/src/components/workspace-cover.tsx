@@ -140,13 +140,17 @@ export function WorkspaceCover({ cover, profileId }: { cover: { version: string;
             Choose image
             <input type="file" name="cover" accept="image/png,image/jpeg,image/webp" required disabled={busy} />
           </label>
-          <p>PNG, JPEG or WebP · Up to 5 MB</p>
+          <p>PNG, JPEG or WebP · Automatically resized and optimized before saving. Very large image dimensions may be rejected for memory safety.</p>
           <button className="primary" disabled={busy}>
-            {busy ? 'Uploading…' : 'Upload image'}
+            {busy ? 'Optimizing and saving…' : 'Upload image'}
           </button>
         </fetcher.Form>
       )}
-      {error && <p className="cover-error error" role="alert">{error}</p>}
+      {error && (
+        <p className="cover-error error" role="alert">
+          {error}
+        </p>
+      )}
       {fetcher.data?.error && (
         <p className="cover-error error" role="alert">
           {fetcher.data.error}

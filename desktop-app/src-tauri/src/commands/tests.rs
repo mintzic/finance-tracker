@@ -3,6 +3,119 @@ use super::imports::write_csv as export_csv;
 use super::overview::read_dashboard as dashboard;
 use super::{ledger::*, shared::*, *};
 
+fn cover_image(width: u32, height: u32, alpha: bool) -> Vec<u8> {
+    let image = if alpha {
+        image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            width,
+            height,
+            image::Rgba([30, 80, 120, 100]),
+        ))
+    } else {
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+            width,
+            height,
+            image::Rgb([30, 80, 120]),
+        ))
+    };
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image.write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+    bytes.into_inner()
+}
+
+#[test]
+fn cover_optimization_formats_dimensions_and_large_input() {
+    use image::GenericImageView;
+    for (width, height, alpha, expected) in [
+        (3000, 1500, false, (2560, 1280)),
+        (1000, 2000, true, (720, 1440)),
+        (2, 3, false, (2, 3)),
+    ] {
+        let (bytes, mime) = files::optimize_cover(&cover_image(width, height, alpha)).unwrap();
+        assert_eq!(mime, if alpha { "image/png" } else { "image/jpeg" });
+        let image = image::load_from_memory(&bytes).unwrap();
+        assert_eq!(image.dimensions(), expected);
+        assert_eq!(image.color().has_alpha(), alpha);
+        if alpha {
+            assert_eq!(image.to_rgba8().get_pixel(0, 0).0[3], 100);
+        }
+    }
+    // Valid PNG with trailing padding: no compressed-byte cap, including >100 MiB.
+    let mut large = cover_image(2, 2, false);
+    large.resize(101 * 1024 * 1024, 0);
+    let (bytes, _) = files::optimize_cover(&large).unwrap();
+    assert!(bytes.len() < 1024);
+    large.truncate(6 * 1024 * 1024);
+    let mut c = db();
+    transaction(
+        &mut c,
+        &json!({"cover":{"bytes":large}}),
+        files::upload_cover_operation,
+    )
+    .unwrap();
+
+    for format in [image::ImageFormat::Jpeg, image::ImageFormat::WebP] {
+        let image = image::load_from_memory(&cover_image(2, 2, false)).unwrap();
+        let mut input = std::io::Cursor::new(Vec::new());
+        image.write_to(&mut input, format).unwrap();
+        let (bytes, _) = files::optimize_cover(input.get_ref()).unwrap();
+        assert_eq!(
+            image::load_from_memory(&bytes).unwrap().dimensions(),
+            (2, 2)
+        );
+    }
+}
+
+#[test]
+fn cover_invalid_dimensions_and_replacement_rollback() {
+    let mut c = db();
+    let form = json!({"cover":{"bytes":cover_image(2, 2, true)}});
+    transaction(&mut c, &form, files::upload_cover_operation).unwrap();
+    let previous = one(&c, "SELECT * FROM workspace_cover", []).unwrap();
+    for bytes in [b"not an image".to_vec(), b"\x89PNG\r\n\x1a\n".to_vec(), {
+        let mut bytes = cover_image(2, 2, false);
+        bytes.truncate(bytes.len() / 2);
+        bytes
+    }] {
+        assert!(
+            transaction(
+                &mut c,
+                &json!({"cover":{"bytes":bytes}}),
+                files::upload_cover_operation
+            )
+            .is_err()
+        );
+        assert_eq!(
+            one(&c, "SELECT * FROM workspace_cover", []).unwrap(),
+            previous
+        );
+    }
+    // Generate valid PNG IHDR checksums without allocating the claimed image.
+    for (width, height) in [(32769u32, 1u32), (10001, 10000)] {
+        let mut bytes = cover_image(2, 2, false);
+        bytes[16..20].copy_from_slice(&width.to_be_bytes());
+        bytes[20..24].copy_from_slice(&height.to_be_bytes());
+        let mut crc = !0u32;
+        for byte in &bytes[12..29] {
+            crc ^= u32::from(*byte);
+            for _ in 0..8 {
+                crc = (crc >> 1) ^ (0xedb88320u32 & 0u32.wrapping_sub(crc & 1));
+            }
+        }
+        bytes[29..33].copy_from_slice(&(!crc).to_be_bytes());
+        let error = files::optimize_cover(&bytes).unwrap_err();
+        assert!(
+            error.contains("limit") || error.contains("100 million"),
+            "{error}"
+        );
+    }
+    c.execute_batch("CREATE TRIGGER fail_cover BEFORE UPDATE ON workspace_cover BEGIN SELECT RAISE(ABORT, 'cover failure'); END;").unwrap();
+    assert!(transaction(&mut c, &form, files::upload_cover_operation).is_err());
+    assert_eq!(
+        one(&c, "SELECT * FROM workspace_cover", []).unwrap(),
+        previous
+    );
+}
+
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     initialize(&c).unwrap();
@@ -281,7 +394,7 @@ fn receipt_storage_replacement_cleanup_and_validation() {
 #[test]
 fn cover_version_and_sniffing() {
     let mut c = db();
-    let f = json!({"intent":"upload_cover","cover":{"name":"x.png","mime":"image/png","bytes":[137,80,78,71,13,10,26,10]}});
+    let f = json!({"intent":"upload_cover","cover":{"name":"x.png","mime":"image/png","bytes":cover_image(2, 2, true)}});
     mutate(&mut c, &f).unwrap();
     let v = one(&c, "SELECT version FROM workspace_cover", []).unwrap()["version"].clone();
     mutate(
@@ -453,7 +566,7 @@ fn fixed_feature_operations_ignore_supplied_intent() {
 #[test]
 fn fixed_cover_operations_cannot_be_redirected() {
     let mut c = db();
-    let f = json!({"intent":"remove_cover","cover":{"bytes":[137,80,78,71,13,10,26,10]}});
+    let f = json!({"intent":"remove_cover","cover":{"bytes":cover_image(2, 2, false)}});
     transaction(&mut c, &f, files::upload_cover_operation).unwrap();
     let version = one(&c, "SELECT version FROM workspace_cover", []).unwrap()["version"].clone();
     transaction(

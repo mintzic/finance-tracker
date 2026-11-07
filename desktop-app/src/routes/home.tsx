@@ -87,7 +87,15 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Dashboard
 
 export async function action({ request }: ActionFunctionArgs): Promise<ActionResult> {
   try {
-    const form = await serializeForm(await request.formData());
+    const data = await request.formData();
+    if (data.get('intent') === 'upload_cover') {
+      const file = data.get('cover');
+      if (!(file instanceof File) || !file.size) {
+        return { error: 'Choose an image.' };
+      }
+      return await bridge.uploadCover(file);
+    }
+    const form = await serializeForm(data);
     switch (form.intent) {
       case 'wallet':
         return await bridge.saveAccount(form);
@@ -119,8 +127,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<ActionRes
         return await bridge.previewImport(form);
       case 'commit_import':
         return await bridge.commitImport(form);
-      case 'upload_cover':
-        return await bridge.uploadCover(form);
+
       case 'remove_cover':
         return await bridge.removeCover(form);
       case 'position_cover':

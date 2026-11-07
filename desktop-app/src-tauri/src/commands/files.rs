@@ -12,8 +12,6 @@ pub(super) fn upload(f: &Value, key: &str, limit: usize) -> R<Option<(Vec<u8>, S
     if a.len() > limit {
         return Err(if key == "file" {
             "CSV must be at most 1 MB."
-        } else if key == "cover" {
-            "Cover images must be no larger than 5 MB."
         } else {
             "Receipt must be no larger than 5 MB."
         }
@@ -124,9 +122,61 @@ pub(super) fn read_asset(conn: &Connection, kind: &str, id: &str) -> R<Value> {
     }
 }
 
+/// Decode before taking the workspace lock: compressed size is not a safety bound.
+pub(super) fn optimize_cover(bytes: &[u8]) -> R<(Vec<u8>, &'static str)> {
+    use image::{ImageDecoder, ImageFormat, ImageReader};
+    use std::io::Cursor;
+
+    let format = image::guess_format(bytes).map_err(|_| "Choose a PNG, JPEG, or WebP image.")?;
+    if !matches!(
+        format,
+        ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP
+    ) {
+        return Err("Choose a PNG, JPEG, or WebP image.".into());
+    }
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(32_768);
+    limits.max_image_height = Some(32_768);
+    limits.max_alloc = Some(512 * 1024 * 1024);
+    reader.limits(limits);
+    let decoder = reader
+        .into_decoder()
+        .map_err(|e| format!("Invalid cover image: {e}"))?;
+    let (width, height) = decoder.dimensions();
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 100_000_000 {
+        return Err("Cover images must contain between 1 and 100 million pixels.".into());
+    }
+    let image = image::DynamicImage::from_decoder(decoder)
+        .map_err(|e| format!("Invalid cover image: {e}"))?;
+    let image = if width > 2560 || height > 1440 {
+        image.resize(2560, 1440, image::imageops::FilterType::Lanczos3)
+    } else {
+        image
+    };
+    let mut output = Vec::new();
+    let mime = if image.color().has_alpha() {
+        image
+            .write_to(&mut Cursor::new(&mut output), ImageFormat::Png)
+            .map_err(|e| format!("Could not encode cover: {e}"))?;
+        "image/png"
+    } else {
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, 85)
+            .encode_image(&image.to_rgb8())
+            .map_err(|e| format!("Could not encode cover: {e}"))?;
+        "image/jpeg"
+    };
+    Ok((output, mime))
+}
+
+#[cfg(test)]
 pub(super) fn upload_cover_operation(c: &Connection, f: &Value) -> R<Value> {
-    let (b, _) = upload(f, "cover", 5 * 1024 * 1024)?.ok_or("Choose an image.")?;
-    let m = mime(&b, true)?;
+    let (bytes, _) = upload(f, "cover", usize::MAX)?.ok_or("Choose an image.")?;
+    let (bytes, mime) = optimize_cover(&bytes)?;
+    store_cover(c, &bytes, mime)
+}
+
+fn store_cover(c: &Connection, b: &[u8], m: &str) -> R<Value> {
     exec(
         c,
         "INSERT INTO workspace_cover(id,version,mime,image,position) VALUES (1,?,?,?,50) ON CONFLICT(id) DO UPDATE SET version=excluded.version,mime=excluded.mime,image=excluded.image,position=50",
@@ -137,9 +187,26 @@ pub(super) fn upload_cover_operation(c: &Connection, f: &Value) -> R<Value> {
 }
 
 #[tauri::command]
-pub fn upload_cover(state: NativeState<'_>, form: Value) -> R<Value> {
-    let workspace = locked(&state)?;
-    transaction(&mut workspace.connection()?, &form, upload_cover_operation)
+pub async fn upload_cover(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) -> R<Value> {
+    use tauri::Manager;
+
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err("Cover upload requires a raw binary body.".into()),
+    };
+    let mut connection = {
+        let state = app.state::<std::sync::Mutex<crate::workspace::Workspace>>();
+        let workspace = locked(&state)?;
+        workspace.connection()?
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let (bytes, mime) = optimize_cover(&bytes)?;
+        transaction(&mut connection, &json!({}), |c, _| {
+            store_cover(c, &bytes, mime)
+        })
+    })
+    .await
+    .map_err(|e| format!("Cover processing failed: {e}"))?
 }
 
 pub(super) fn remove_cover_operation(c: &Connection, _f: &Value) -> R<Value> {

@@ -3,8 +3,8 @@ import { Cat } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useMoney } from '@/lib/preferences';
 
-const palette = ['#b99aff', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
-const tooltipStyle = { background: '#211d30', border: '1px solid #444', borderRadius: 8 };
+const palette = ['var(--theme-accent)', '#73d9ae', '#f2c779', '#7dbff1', '#f28fb1', '#b4dc78', '#929dff', '#f3a574', '#9eaac2'];
+const tooltipStyle = { background: 'var(--theme-surface)', color: 'var(--theme-text)', border: '1px solid var(--theme-border)', borderRadius: 8 };
 
 export function SpendingChart({ data, total, income = false }: { data: { category: string; amount: number }[]; total: number; income?: boolean }) {
   const hasSpending = data.some((row) => row.amount > 0);
@@ -49,7 +49,7 @@ export function SpendingChart({ data, total, income = false }: { data: { categor
               <Tooltip
                 portal={tooltipPortal}
                 formatter={(value) => money(Number(value))}
-                contentStyle={{ ...tooltipStyle, color: '#f5f3f8', overflowWrap: 'anywhere' }}
+                contentStyle={{ ...tooltipStyle, color: 'var(--theme-text)', overflowWrap: 'anywhere' }}
                 wrapperStyle={{ position: 'fixed', ...tooltipPosition, zIndex: 1000, pointerEvents: 'none' }}
               />
             </PieChart>
@@ -127,21 +127,21 @@ export function TrendChart({
       <ResponsiveContainer width="100%" height={260} minWidth={0} initialDimension={{ width: 320, height: 260 }}>
         {savings ? (
           <LineChart data={data}>
-            <CartesianGrid stroke="#303035" vertical={false} />
-            <XAxis dataKey="month" stroke="#999" fontSize={11} />
-            <YAxis stroke="#999" fontSize={11} tickFormatter={(value) => money(value)} />
+            <CartesianGrid stroke="var(--theme-border)" vertical={false} />
+            <XAxis dataKey="month" stroke="var(--theme-muted)" fontSize={11} />
+            <YAxis stroke="var(--theme-muted)" fontSize={11} tickFormatter={(value) => money(value)} />
             <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
-            <Line type="monotone" dataKey="savings" name="Goal allocations" stroke="#b99aff" strokeWidth={3} isAnimationActive={true} />
+            <Line type="monotone" dataKey="savings" name="Goal allocations" stroke="var(--theme-accent)" strokeWidth={3} isAnimationActive={true} />
           </LineChart>
         ) : (
           <BarChart data={data}>
-            <CartesianGrid stroke="#303035" vertical={false} />
-            <XAxis dataKey="month" stroke="#999" fontSize={11} />
-            <YAxis stroke="#999" fontSize={11} tickFormatter={(value) => money(value)} />
+            <CartesianGrid stroke="var(--theme-border)" vertical={false} />
+            <XAxis dataKey="month" stroke="var(--theme-muted)" fontSize={11} />
+            <YAxis stroke="var(--theme-muted)" fontSize={11} tickFormatter={(value) => money(value)} />
             <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
             <Legend />
-            {series !== 'expense' && <Bar dataKey="income" name="Income" fill="#73d9ae" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
-            {series !== 'income' && <Bar dataKey="expense" name="Expenses" fill="#b99aff" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
+            {series !== 'expense' && <Bar dataKey="income" name="Income" fill="var(--theme-positive)" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
+            {series !== 'income' && <Bar dataKey="expense" name="Expenses" fill="var(--theme-accent)" radius={[4, 4, 0, 0]} isAnimationActive={true} />}
           </BarChart>
         )}
       </ResponsiveContainer>

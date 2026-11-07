@@ -42,6 +42,7 @@ import { LedgerCover } from '@/components/ledger-cover';
 import type { Transaction } from '@/lib/types';
 import catIcon from '@/assets/icon.png';
 import { ProfileSettings } from '@/components/user-settings';
+import { AppearanceSettings } from '@/components/appearance-settings';
 import { LedgerSwitcher, LedgerManager } from '@/components/ledger-switcher';
 
 const SpendingChart = lazy(() => import('@/components/charts').then((module) => ({ default: module.SpendingChart })));
@@ -296,6 +297,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                 {(
                   [
                     ['profile', 'Profile', UserRound],
+                    ['appearance', 'Appearance', SlidersHorizontal],
                     ['categories', 'Categories', SlidersHorizontal],
                     ['import', 'Import & export', Upload],
                     ['data', 'Data & reset', SettingsIcon],
@@ -324,13 +326,15 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                 <div>
                   <p className="eyebrow">MAKE YOURSELF AT HOME</p>
                   <h1>
-                    {settingsSection === 'categories'
-                      ? 'Categories'
-                      : settingsSection === 'import'
-                        ? 'Import & export'
-                        : settingsSection === 'data'
-                          ? 'Data & reset'
-                          : 'Your profile'}
+                    {settingsSection === 'appearance'
+                      ? 'Appearance'
+                      : settingsSection === 'categories'
+                        ? 'Categories'
+                        : settingsSection === 'import'
+                          ? 'Import & export'
+                          : settingsSection === 'data'
+                            ? 'Data & reset'
+                            : 'Your profile'}
                   </h1>
                   <p className="muted">A few preferences. A space that feels like yours.</p>
                 </div>
@@ -346,6 +350,7 @@ function HomeContent({ loaderData: d, actionData }: { loaderData: DashboardData;
                 </p>
               )}
               {settingsSection === 'profile' && <ProfileSettings profile={d.profile} />}
+              {settingsSection === 'appearance' && <AppearanceSettings />}
               {settingsSection === 'categories' && (
                 <CategoryManager
                   inline

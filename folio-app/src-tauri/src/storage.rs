@@ -647,7 +647,13 @@ impl Storage {
                     ));
                 }
             }
-            let selected: Option<String> = if has_profiles {
+            // Electron used a cookie for selection; only earlier Tauri installs have this table.
+            let has_native_settings: bool = old.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='native_settings')",
+                [],
+                |r| r.get(0),
+            ).map_err(err)?;
+            let selected: Option<String> = if has_profiles && has_native_settings {
                 old.query_row(
                     "SELECT value FROM native_settings WHERE key='selected_profile'",
                     [],
@@ -1137,6 +1143,27 @@ mod tests {
         c.execute_batch("CREATE TABLE local_profiles (id TEXT PRIMARY KEY,username TEXT,language TEXT,currency TEXT,legacy INTEGER); CREATE TABLE native_settings(key TEXT PRIMARY KEY,value TEXT);").unwrap();
         c.execute("INSERT INTO goals VALUES ('old','Legacy goal',100,'2030-01-01')", []).unwrap();
     }
+    #[test]
+    fn electron_import_without_native_settings() {
+        let source = Temp::new();
+        legacy(&source.0);
+        let profile = Uuid::new_v4().to_string();
+        let c = Connection::open(source.0.join("finance.sqlite")).unwrap();
+        c.execute_batch("DROP TABLE native_settings").unwrap();
+        c.execute("INSERT INTO local_profiles VALUES (?,'Electron profile','en-SG','SGD',1)", [&profile]).unwrap();
+        drop(c);
+
+        let target = Temp::new();
+        let storage = Storage::new(target.0.clone()).unwrap();
+        let settings = storage.import_legacy(source.0.to_str().unwrap()).unwrap();
+        assert_eq!(settings["profile"]["username"], "Electron profile");
+        assert_eq!(settings["ledger"]["currency"], "SGD");
+        assert_eq!(storage.connection().unwrap().query_row("SELECT name FROM goals", [], |r| r.get::<_, String>(0)).unwrap(), "Legacy goal");
+        let original = Connection::open(source.0.join("finance.sqlite")).unwrap();
+        assert!(original.prepare("SELECT * FROM wallets").is_ok());
+        assert!(original.prepare("SELECT * FROM native_settings").is_err());
+    }
+
     #[test]
     fn automatic_legacy_conversion_and_idempotence() {
         let temp = Temp::new();

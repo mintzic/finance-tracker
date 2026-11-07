@@ -1,0 +1,164 @@
+name: Desktop builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to publish (for example v0.1.0). A new tag will point to the selected commit.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ inputs.release_tag }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Check out selected commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate tag and target commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_TAG" != v* ]]; then
+            echo "Release tags must start with v (for example v0.1.0)."
+            exit 1
+          fi
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            tag_commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+            if [[ "$tag_commit" != "$(git rev-parse HEAD)" ]]; then
+              echo "The release tag points to a different commit. Choose a new tag or run the workflow on that tag."
+              exit 1
+            fi
+          fi
+
+  package:
+    name: Package and test (${{ matrix.os }})
+    needs: validate
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: folio-app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: folio-app/package-lock.json
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: folio-app/src-tauri -> target
+      - name: Install dependencies
+        run: npm ci
+      - name: Check types
+        run: npx tsc --noEmit
+      - name: Test Rust backend
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Build Tauri installers (ad-hoc signed on macOS)
+        run: npm run tauri -- build --ci
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+      - name: Verify macOS ad-hoc signature
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(src-tauri/target/release/bundle/macos/*.app)
+          if [[ "${#apps[@]}" -ne 1 ]]; then
+            echo "Expected one packaged macOS app; found ${#apps[@]}"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+          signature=$(codesign --display --verbose=2 "${apps[0]}" 2>&1)
+          if [[ "$signature" != *"Signature=adhoc"* ]]; then
+            echo "Expected an ad-hoc signed macOS app."
+            exit 1
+          fi
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: folio-finance-tracker-${{ matrix.os }}
+          path: |
+            folio-app/src-tauri/target/release/bundle/nsis/*.exe
+            folio-app/src-tauri/target/release/bundle/msi/*.msi
+            folio-app/src-tauri/target/release/bundle/dmg/*.dmg
+            folio-app/src-tauri/target/release/bundle/appimage/*.AppImage
+            folio-app/src-tauri/target/release/bundle/deb/*.deb
+            folio-app/src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+
+  release:
+    name: Publish release with installers
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Check out built commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download installers from all platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: folio-finance-tracker-*
+          path: installers
+          merge-multiple: true
+      - name: Create release or attach installers to existing release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' assets < <(find installers -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) -print0)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No installers were downloaded."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            if [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$(git rev-parse HEAD)" ]]; then
+              echo "The release tag no longer points to the built commit."
+              exit 1
+            fi
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" \
+              --target "$(git rev-parse HEAD)" \
+              --title "Folio Finance Tracker $RELEASE_TAG" \
+              --generate-notes
+          fi

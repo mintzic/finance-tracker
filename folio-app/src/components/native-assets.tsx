@@ -1,4 +1,4 @@
-import { useEffect, useState, type AnchorHTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type AnchorHTMLAttributes } from 'react';
 import { bridge, errorMessage } from '@/lib/bridge';
 
 export function download(blob: Blob, filename: string) {
@@ -51,35 +51,107 @@ export function useCoverUrl(version: string | undefined, ledgerId: string) {
   return { url: asset?.key === key ? asset.url : undefined, error };
 }
 
-export function ReceiptLink({ id, children }: { id: string; children: React.ReactNode }) {
+function ReceiptPreview({ id, close }: { id: string; close: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [preview, setPreview] = useState<{ url: string; pdf: boolean }>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    dialog.current?.showModal();
+    let active = true;
+    let url: string | undefined;
+    bridge
+      .receiptPreview(id)
+      .then((bytes) => {
+        if (!active) {
+          return;
+        }
+
+        const pdf = new TextDecoder().decode(new Uint8Array(bytes).subarray(0, 5)) === '%PDF-';
+        const png = new Uint8Array(bytes)[0] === 137;
+        url = URL.createObjectURL(new Blob([bytes], { type: pdf ? 'application/pdf' : png ? 'image/png' : 'image/jpeg' }));
+        setPreview({ url, pdf });
+      })
+      .catch((reason) => {
+        if (active) {
+          setError(errorMessage(reason));
+        }
+      });
+    return () => {
+      active = false;
+
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [id]);
+  return (
+    <dialog
+      ref={dialog}
+      className="receipt-preview"
+      aria-label="Receipt preview"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+      onClick={(event) => {
+        if (event.target === dialog.current) {
+          close();
+        }
+      }}>
+      <header className="receipt-preview-toolbar">
+        <h2>Receipt preview</h2>
+        <button type="button" className="icon-button" aria-label="Close receipt preview" onClick={close}>
+          ✕
+        </button>
+      </header>
+      <div className="receipt-preview-stage">
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        {!preview && !error && <p role="status">Loading receipt…</p>}
+        {preview &&
+          (preview.pdf ? (
+            <object className="receipt-preview-document" data={preview.url} type="application/pdf" aria-label="Receipt PDF">
+              <p>PDF preview is unavailable in this viewer. Use Download original to view the receipt.</p>
+            </object>
+          ) : (
+            <img className="receipt-preview-image" src={preview.url} alt="Receipt" />
+          ))}
+      </div>
+      <footer className="receipt-preview-toolbar receipt-preview-footer">
+        <button
+          type="button"
+          className="secondary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const asset = await bridge.asset('receipt', id);
+              download(new Blob([new Uint8Array(asset.bytes)], { type: asset.mime }), asset.filename);
+            } catch (reason) {
+              setError(errorMessage(reason));
+            } finally {
+              setBusy(false);
+            }
+          }}>
+          {busy ? 'Downloading…' : 'Download original'}
+        </button>
+      </footer>
+    </dialog>
+  );
+}
+
+export function ReceiptLink({ id, children }: { id: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="Download receipt"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          setError('');
-          try {
-            const asset = await bridge.asset('receipt', id);
-            download(new Blob([new Uint8Array(asset.bytes)], { type: asset.mime }), asset.filename);
-          } catch (reason) {
-            setError(errorMessage(reason));
-          } finally {
-            setBusy(false);
-          }
-        }}>
+      <button type="button" className="icon-button" aria-label="Preview receipt" onClick={() => setOpen(true)}>
         {children}
       </button>
-      {error && (
-        <span role="alert" className="error">
-          {error}
-        </span>
-      )}
+      {open && <ReceiptPreview key={id} id={id} close={() => setOpen(false)} />}
     </>
   );
 }

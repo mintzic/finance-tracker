@@ -29,6 +29,7 @@ export const bridge = {
   updateLedger: (form: SerializedForm) => invoke<SettingsData>('update_ledger', { form }),
   switchLedger: (form: SerializedForm) => invoke<SettingsData>('switch_ledger', { form }),
   deleteLedger: (form: SerializedForm) => invoke<SettingsData>('delete_ledger', { form }),
+  receiptPreview: (id: string) => invoke<ArrayBuffer>('receipt_preview', { id }),
   asset: (kind: 'receipt' | 'cover', id: string) => invoke<NativeAsset>('asset', { kind, id }),
   exportCsv: () => invoke<string>('export_csv', {}),
   exportBackup: () => invoke<unknown>('export_backup', {}),
@@ -60,14 +61,14 @@ export async function serializeForm(data: FormData): Promise<SerializedForm> {
   const fields: [string, FormDataEntryValue][] = [];
   data.forEach((value, key) => {
     const bytes = typeof value === 'string' ? new TextEncoder().encode(value).byteLength : value.size;
-    size += bytes;
-    const csv = key === 'csv' || key === 'file';
 
-    if (csv && bytes > 1024 * 1024) {
-      throw new Error('CSV must be at most 1 MB.');
+    const unlimited = key === 'receipt' || key === 'csv' || key === 'file';
+
+    if (!unlimited) {
+      size += bytes;
     }
 
-    if (typeof value !== 'string' && bytes > 5 * 1024 * 1024) {
+    if (!unlimited && typeof value !== 'string' && bytes > 5 * 1024 * 1024) {
       throw new Error('File must be no larger than 5 MB.');
     }
 

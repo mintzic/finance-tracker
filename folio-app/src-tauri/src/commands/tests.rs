@@ -315,6 +315,53 @@ fn receipt_storage_replacement_cleanup_and_validation() {
     assert_eq!(count(&c, "receipts"), 0);
 }
 #[test]
+fn receipt_large_upload_and_pdf_preview_preserve_original() {
+    let mut c = db();
+    let mut bytes = b"%PDF-test".to_vec();
+    bytes.resize(5 * 1024 * 1024 + 1, 0);
+    let mut form = transaction_form();
+    form["receipt"] = json!({"name":"large.pdf","bytes":bytes});
+    mutate(&mut c, &form).unwrap();
+    let rid = id(&c, "receipts");
+    let stored = files::read_receipt_bytes(&c, &rid).unwrap();
+    assert_eq!(stored, bytes);
+    assert_eq!(files::optimize_receipt_preview(stored).unwrap(), bytes);
+    assert_eq!(files::read_receipt_bytes(&c, "missing").unwrap_err(), "Asset not found.");
+
+}
+
+#[test]
+fn receipt_preview_optimizes_images_without_changing_original() {
+    use image::GenericImageView;
+
+    let mut c = db();
+    for (width, height, alpha, expected) in [(2600, 100, false, (2560, 98)), (2, 3, true, (2, 3))] {
+        let mut original = cover_image(width, height, alpha);
+        original.resize(5 * 1024 * 1024 + 1, 0);
+        let mut form = transaction_form();
+        form["receipt"] = json!({"bytes":original});
+        mutate(&mut c, &form).unwrap();
+        let rid: String = c
+            .query_row("SELECT id FROM receipts ORDER BY rowid DESC LIMIT 1", [], |row| row.get(0))
+            .unwrap();
+        let preview =
+            files::optimize_receipt_preview(files::read_receipt_bytes(&c, &rid).unwrap()).unwrap();
+        assert!(preview.len() < original.len());
+        assert_eq!(
+            image::guess_format(&preview).unwrap(),
+            if alpha { image::ImageFormat::Png } else { image::ImageFormat::Jpeg }
+        );
+        let decoded = image::load_from_memory(&preview).unwrap();
+        assert_eq!(decoded.dimensions(), expected);
+        if alpha {
+            assert_eq!(decoded.to_rgba8().get_pixel(0, 0).0[3], 100);
+        }
+        assert_eq!(files::read_receipt_bytes(&c, &rid).unwrap(), original);
+    }
+    assert!(files::optimize_receipt_preview(b"\x89PNG\r\n\x1a\n".to_vec()).is_err());
+}
+
+#[test]
 fn cover_version_and_sniffing() {
     let mut c = db();
     let f = json!({"intent":"upload_cover","cover":{"name":"x.png","mime":"image/png","bytes":cover_image(2, 2, true)}});
@@ -334,6 +381,21 @@ fn cover_version_and_sniffing() {
     mutate(&mut c, &json!({"intent":"remove_cover"})).unwrap();
     assert!(asset(&c, "cover", "1").is_err());
 }
+#[test]
+fn csv_import_accepts_large_file_and_text() {
+    let c = db();
+    // Leading blank lines grow the file without changing its records or field validation.
+    let csv = format!("{}{CSV}", "\n".repeat(7 * 1024 * 1024));
+    for form in [
+        json!({"csv":csv}),
+        json!({"file":{"name":"large.csv","bytes":csv.as_bytes()}}),
+    ] {
+        let result = imports::preview_import_operation(&c, &form).unwrap();
+        assert_eq!(result["preview"].as_array().unwrap().len(), 1);
+        assert!(result["preview"][0].get("error").is_none());
+    }
+}
+
 const CSV: &str = "date,kind,description,amount,account,destination,category,notes\n2026-10-01,expense,Coffee,5.50,Everyday,,Food & dining,\n";
 #[test]
 fn csv_preview_duplicate_and_atomic_commit() {

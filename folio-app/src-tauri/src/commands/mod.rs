@@ -49,6 +49,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         imports::preview_import,
         imports::commit_import,
         files::asset,
+        files::receipt_preview,
         imports::export_csv,
         imports::import_legacy
     ]

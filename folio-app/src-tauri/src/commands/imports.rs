@@ -18,9 +18,7 @@ fn fingerprint(v: &Value) -> R<String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 fn preview(c: &Connection, s: &str) -> R<Vec<Value>> {
-    if s.len() > 1024 * 1024 {
-        return Err("CSV must be at most 1 MB.".into());
-    }
+
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
         .from_reader(s.trim_start_matches('\u{feff}').as_bytes());
@@ -75,7 +73,7 @@ fn preview(c: &Connection, s: &str) -> R<Vec<Value>> {
     Ok(out)
 }
 pub(super) fn import(c: &Connection, f: &Value, preview_only: bool) -> R<Value> {
-    let csv = if let Some((b, _)) = files::upload(f, "file", 1024 * 1024)? {
+    let csv = if let Some((b, _)) = files::upload(f, "file", usize::MAX)? {
         String::from_utf8_lossy(&b).into_owned()
     } else {
         field(f, "csv").to_string()

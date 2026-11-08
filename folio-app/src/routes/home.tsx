@@ -1196,7 +1196,7 @@ function Editor({ modal, data: d, close, pending, error }: { modal: Modal; data:
                 <textarea name="notes" rows={3} maxLength={2000} defaultValue={v.notes} />
               </label>
               <label>
-                Receipt (optional · PDF, PNG, JPEG · 5 MB max)
+                Receipt (optional · PDF, PNG, JPEG)
                 <input name="receipt" type="file" accept="application/pdf,image/png,image/jpeg" />
               </label>
               {v.id && (

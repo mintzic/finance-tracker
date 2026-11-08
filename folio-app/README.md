@@ -51,7 +51,11 @@ To import a separate Electron directory, open Settings → Import legacy data **
 
 PNG/JPEG/WebP cover uploads have no 5 MB file-size cap. Binary IPC avoids JSON byte arrays. Rust processes images on a background worker before saving, resizing without upscaling to fit **2560 × 1440** and stripping metadata. Output is JPEG quality 85, or PNG for an alpha channel. Only optimized bytes are stored; failures retain the current header. An in-flight upload remains bound to its initiating ledger.
 
-Large inputs, including files over 100 MB, still need upload memory/time. Decoding is guarded by 32,768 pixels per axis, 100 million total pixels, and a 512 MiB decoder allocation budget—not a process-wide memory cap. Existing images are optimized only when re-uploaded. Receipts retain a 5 MB limit; CSV retains a 1 MB limit.
+Large inputs, including files over 100 MB, still need upload memory/time. Decoding is guarded by 32,768 pixels per axis, 100 million total pixels, and a 512 MiB decoder allocation budget—not a process-wide memory cap. Existing images are optimized only when re-uploaded. CSV uploads and pasted CSV have no application-imposed file-size cap. The existing 1,000-row import batch and 10,000-character record limits remain. Large CSVs still require frontend IPC memory and backend processing time.
+
+## Receipts
+
+PDF, PNG, and JPEG receipts have no application-imposed upload-size cap (available memory and database limits still apply). Clicking an attachment opens a popup preview with an option to download the unchanged original. Image previews are generated on a backend worker using the bounded image optimizer above and returned over binary IPC; PDFs use the webview’s built-in viewer, with a download fallback. Previews load only when opened and their temporary URLs are released on close. Receipt uploads still use JSON IPC, so very large files can require significant memory and upload time.
 
 ## Validation and packaging
 

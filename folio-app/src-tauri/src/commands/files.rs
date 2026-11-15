@@ -10,12 +10,7 @@ pub(super) fn upload(f: &Value, key: &str, limit: usize) -> R<Option<(Vec<u8>, S
         .and_then(Value::as_array)
         .ok_or("File bytes must be an array of integers.")?;
     if a.len() > limit {
-        return Err(if key == "file" {
-            "CSV must be at most 1 MB."
-        } else {
-            "Receipt must be no larger than 5 MB."
-        }
-        .into());
+        return Err("File exceeds the allowed size.".into());
     }
     let bytes = a
         .iter()
@@ -55,7 +50,7 @@ fn mime(b: &[u8], cover: bool) -> R<&'static str> {
     }
 }
 pub(super) fn receipt(c: &Connection, f: &Value, transaction_id: &str) -> R<()> {
-    let file = upload(f, "receipt", 5 * 1024 * 1024)?;
+    let file = upload(f, "receipt", usize::MAX)?;
     let staged = if let Some((bytes, name)) = file {
         let m = mime(&bytes, false)?;
         Some((bytes, name, m))
@@ -228,6 +223,43 @@ pub(super) fn position_cover_operation(c: &Connection, f: &Value) -> R<Value> {
 pub fn position_cover(state: NativeState<'_>, form: Value) -> R<Value> {
     let storage = locked(&state)?;
     transaction(&mut storage.connection()?, &form, position_cover_operation)
+}
+
+pub(super) fn read_receipt_bytes(conn: &Connection, id: &str) -> R<Vec<u8>> {
+    use rusqlite::OptionalExtension;
+
+    conn.query_row(
+        "SELECT n.bytes FROM receipt_files n JOIN receipts r ON r.id=n.id WHERE r.id=?",
+        [id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(err)?
+    .ok_or_else(|| "Asset not found.".into())
+}
+
+pub(super) fn optimize_receipt_preview(bytes: Vec<u8>) -> R<Vec<u8>> {
+    if mime(&bytes, false)? == "application/pdf" {
+        Ok(bytes)
+    } else {
+        optimize_cover(&bytes).map(|(bytes, _)| bytes)
+    }
+}
+
+#[tauri::command]
+pub async fn receipt_preview(app: tauri::AppHandle, id: String) -> R<tauri::ipc::Response> {
+    use tauri::Manager;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = {
+            let state = app.state::<std::sync::Mutex<crate::storage::Storage>>();
+            let storage = locked(&state)?;
+            read_receipt_bytes(&storage.connection()?, &id)?
+        };
+        optimize_receipt_preview(bytes).map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| format!("Receipt preview processing failed: {e}"))?
 }
 
 #[tauri::command]

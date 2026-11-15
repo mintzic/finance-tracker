@@ -1,3 +1,4 @@
+use crate::currencies::{CURRENCIES, DEFAULT_CURRENCY};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -116,9 +117,9 @@ BEGIN SELECT RAISE(ABORT, 'The profile cannot be deleted.'); END;
 CREATE TABLE IF NOT EXISTS ledgers (id TEXT PRIMARY KEY, name TEXT NOT NULL, currency TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 ";
-const CURRENCIES: &str = "AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BOV BRL BSD BTN BWP BYN BZD CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD HNL HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MXV MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SLL SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD USN UYI UYU UYW UZS VED VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD XCG XDR XOF XPD XPF XPT XSU XTS XUA XXX YER ZAR ZMW ZWG ZWL";
+
 fn currency(value: &str) -> R<&str> {
-    if CURRENCIES.split_whitespace().any(|c| c == value) {
+    if CURRENCIES.contains(&value) {
         Ok(value)
     } else {
         Err("Choose a supported ISO currency.".into())
@@ -131,218 +132,8 @@ fn text<'a>(form: &'a Value, key: &str, max: usize) -> R<&'a str> {
     }
     Ok(value)
 }
-fn locale_region(locale: &str) -> Option<String> {
-    let locale = locale.split(['.', '@']).next().unwrap_or("").replace('-', "_");
-    locale
-        .split('_')
-        .skip(1)
-        .find(|s| {
-            (s.len() == 2 && s.bytes().all(|b| b.is_ascii_alphabetic()))
-                || (s.len() == 3 && s.bytes().all(|b| b.is_ascii_digit()))
-        })
-        .map(str::to_ascii_uppercase)
-}
-fn region_currency(locale: &str) -> &'static str {
-    match locale_region(locale).as_deref().unwrap_or("") {
-        "AT" | "BE" | "CY" | "DE" | "EE" | "ES" | "FI" | "FR" | "GR" | "HR" | "IE" | "IT"
-        | "LT" | "LU" | "LV" | "MT" | "NL" | "PT" | "SI" | "SK" | "AD" | "MC" | "SM" | "VA"
-        | "ME" | "XK" | "BG" => "EUR",
-        "US" | "EC" | "SV" | "PA" | "TL" | "FM" | "MH" | "PW" | "TC" | "VG" | "VI" | "GU"
-        | "AS" | "MP" | "PR" => "USD",
-        "GB" | "GG" | "JE" | "IM" => "GBP",
-        "AU" | "CX" | "CC" | "KI" | "NR" | "TV" => "AUD",
-        "NZ" | "CK" | "NU" | "TK" | "PN" => "NZD",
-        "CH" | "LI" => "CHF",
-        "DK" | "FO" | "GL" => "DKK",
-        "NO" | "SJ" | "BV" => "NOK",
-        "BJ" | "BF" | "CI" | "GW" | "ML" | "NE" | "SN" | "TG" => "XOF",
-        "CM" | "CF" | "TD" | "CG" | "GQ" | "GA" => "XAF",
-        "AI" | "AG" | "DM" | "GD" | "MS" | "KN" | "LC" | "VC" => "XCD",
-        "PF" | "NC" | "WF" => "XPF",
-        "SG" => "SGD",
-        "MY" => "MYR",
-        "CN" => "CNY",
-        "HK" => "HKD",
-        "MO" => "MOP",
-        "TW" => "TWD",
-        "JP" => "JPY",
-        "KR" => "KRW",
-        "KP" => "KPW",
-        "IN" => "INR",
-        "ID" => "IDR",
-        "TH" => "THB",
-        "VN" => "VND",
-        "PH" => "PHP",
-        "CA" => "CAD",
-        "MX" => "MXN",
-        "BR" => "BRL",
-        "AR" => "ARS",
-        "CL" => "CLP",
-        "CO" => "COP",
-        "PE" => "PEN",
-        "UY" => "UYU",
-        "PY" => "PYG",
-        "BO" => "BOB",
-        "VE" => "VES",
-        "ZA" => "ZAR",
-        "LS" => "LSL",
-        "NA" => "NAD",
-        "SZ" => "SZL",
-        "SE" => "SEK",
-        "PL" => "PLN",
-        "CZ" => "CZK",
-        "HU" => "HUF",
-        "RO" => "RON",
-        "TR" => "TRY",
-        "RU" => "RUB",
-        "UA" => "UAH",
-        "BY" => "BYN",
-        "IS" => "ISK",
-        "RS" => "RSD",
-        "AL" => "ALL",
-        "BA" => "BAM",
-        "MK" => "MKD",
-        "MD" => "MDL",
-        "GE" => "GEL",
-        "AM" => "AMD",
-        "AZ" => "AZN",
-        "KZ" => "KZT",
-        "KG" => "KGS",
-        "UZ" => "UZS",
-        "TJ" => "TJS",
-        "TM" => "TMT",
-        "MN" => "MNT",
-        "AE" => "AED",
-        "SA" => "SAR",
-        "QA" => "QAR",
-        "KW" => "KWD",
-        "BH" => "BHD",
-        "OM" => "OMR",
-        "IL" | "PS" => "ILS",
-        "JO" => "JOD",
-        "LB" => "LBP",
-        "IQ" => "IQD",
-        "IR" => "IRR",
-        "SY" => "SYP",
-        "YE" => "YER",
-        "EG" => "EGP",
-        "MA" | "EH" => "MAD",
-        "DZ" => "DZD",
-        "TN" => "TND",
-        "LY" => "LYD",
-        "SD" => "SDG",
-        "SS" => "SSP",
-        "ET" => "ETB",
-        "ER" => "ERN",
-        "DJ" => "DJF",
-        "SO" => "SOS",
-        "KE" => "KES",
-        "UG" => "UGX",
-        "TZ" => "TZS",
-        "RW" => "RWF",
-        "BI" => "BIF",
-        "CD" => "CDF",
-        "AO" => "AOA",
-        "ZM" => "ZMW",
-        "ZW" => "ZWG",
-        "MW" => "MWK",
-        "MZ" => "MZN",
-        "BW" => "BWP",
-        "NG" => "NGN",
-        "GH" => "GHS",
-        "GN" => "GNF",
-        "SL" => "SLE",
-        "LR" => "LRD",
-        "GM" => "GMD",
-        "MR" => "MRU",
-        "CV" => "CVE",
-        "ST" => "STN",
-        "MG" => "MGA",
-        "MU" => "MUR",
-        "SC" => "SCR",
-        "KM" => "KMF",
-        "PK" => "PKR",
-        "BD" => "BDT",
-        "LK" => "LKR",
-        "NP" => "NPR",
-        "BT" => "BTN",
-        "MV" => "MVR",
-        "AF" => "AFN",
-        "MM" => "MMK",
-        "LA" => "LAK",
-        "KH" => "KHR",
-        "BN" => "BND",
-        "PG" => "PGK",
-        "FJ" => "FJD",
-        "SB" => "SBD",
-        "VU" => "VUV",
-        "WS" => "WST",
-        "TO" => "TOP",
-        "GT" => "GTQ",
-        "HN" => "HNL",
-        "NI" => "NIO",
-        "CR" => "CRC",
-        "BZ" => "BZD",
-        "CU" => "CUP",
-        "DO" => "DOP",
-        "HT" => "HTG",
-        "JM" => "JMD",
-        "TT" => "TTD",
-        "BB" => "BBD",
-        "BS" => "BSD",
-        "BM" => "BMD",
-        "KY" => "KYD",
-        "AW" => "AWG",
-        "CW" | "SX" => "XCG",
-        "GY" => "GYD",
-        "SR" => "SRD",
-        "FK" => "FKP",
-        "GI" => "GIP",
-        "SH" => "SHP",
-        _ => "USD",
-    }
-}
-// No location services or network access: only OS preferences and local environment.
-fn system_locale() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    let output = std::process::Command::new("/usr/bin/defaults")
-        .args(["read", "-g", "AppleLocale"])
-        .output();
-    #[cfg(target_os = "windows")]
-    let output = std::process::Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-Command", "(Get-Culture).Name"])
-        .output();
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        output
-            .ok()
-            .filter(|output| output.status.success())
-            .and_then(|output| String::from_utf8(output.stdout).ok())
-            .map(|locale| locale.trim().to_owned())
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    None
-}
-fn currency_from_locales<'a>(locales: impl IntoIterator<Item = &'a str>) -> &'static str {
-    locales
-        .into_iter()
-        .find_map(|locale| {
-            // Regionless locales (including C.UTF-8/POSIX) must not mask a later region.
-            // An explicit unknown region, however, deliberately falls back to USD.
-            locale_region(locale).map(|_| region_currency(locale))
-        })
-        .unwrap_or("USD")
-}
-fn monetary_locales(mut lookup: impl FnMut(&str) -> Option<String>) -> Vec<String> {
-    ["LC_ALL", "LC_MONETARY", "LANG"].into_iter().filter_map(&mut lookup).collect()
-}
 fn default_currency() -> String {
-    let os_locale = system_locale();
-    let environment = monetary_locales(|key| std::env::var(key).ok());
-    currency_from_locales(
-        os_locale.as_deref().into_iter().chain(environment.iter().map(String::as_str)),
-    )
-    .into()
+    DEFAULT_CURRENCY.into()
 }
 
 fn category_values(c: &Connection) -> R<Vec<(String, String)>> {
@@ -415,7 +206,7 @@ impl Storage {
             .cloned()
             .ok_or("Selected ledger is missing.")?;
         Ok(
-            json!({"profile":profile,"ledger":ledger,"ledgers":ledgers,"defaultCurrency":default_currency()}),
+            json!({"profile":profile,"ledger":ledger,"ledgers":ledgers,"defaultCurrency":default_currency(),"currencies":CURRENCIES}),
         )
     }
     pub fn update_profile(&self, form: &Value) -> R<Value> {
@@ -872,9 +663,9 @@ mod tests {
     impl Temp {
         fn new() -> Self {
             // macOS temporary paths can have a symlinked /var ancestor.
-                        let p = fs::canonicalize(std::env::temp_dir())
-                            .unwrap()
-                            .join(format!("folio-storage-test-{}", Uuid::new_v4()));
+            let p = fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("folio-storage-test-{}", Uuid::new_v4()));
             fs::create_dir(&p).unwrap();
             Self(p)
         }
@@ -930,43 +721,23 @@ mod tests {
         assert!(s.create_ledger(&json!({"name":"Bad","currency":"ZZZ"})).is_err());
     }
     #[test]
-    fn currencies_and_regions() {
-        for c in ["USD", "JPY", "INR", "CHF", "KWD", "XAF", "NZD", "XCG", "ZWG"] {
-            currency(c).unwrap();
+    fn supported_currencies_and_manual_selection() {
+        for code in CURRENCIES {
+            currency(code).unwrap();
         }
         assert!(currency("usd").is_err());
-        for (locale, unit) in [
-            ("en_SG", "SGD"),
-            ("en_SG.UTF-8", "SGD"),
-            ("en_SG@currency=USD", "SGD"),
-            ("en_001", "USD"),
-            ("unknown", "USD"),
-            ("C.UTF-8", "USD"),
-            ("de-DE", "EUR"),
-            ("en_IN", "INR"),
-            ("fr_CA", "CAD"),
-            ("zh_Hant_TW", "TWD"),
-            ("en_ZZ", "USD"),
-            ("C", "USD"),
-        ] {
-            assert_eq!(region_currency(locale), unit);
-        }
-    }
-    #[test]
-    fn regional_settings_precede_shell_and_neutral_locales_fall_through() {
-        for (locales, expected) in [
-            (vec!["en_SG", "en_US.UTF-8"], "SGD"),
-            (vec!["zh_Hant_TW", "en_US.UTF-8"], "TWD"),
-            (vec!["en_SG@currency=USD", "en_US"], "SGD"),
-            (vec!["C.UTF-8", "en_SG"], "SGD"),
-            (vec!["C.UTF8", "POSIX", "", "zh_Hant_TW"], "TWD"),
-            (vec!["en_001", "en_SG"], "USD"),
-            (vec!["en_ZZ", "en_SG"], "USD"),
-            (vec!["unknown", "C.UTF-8"], "USD"),
-            (vec![], "USD"),
-        ] {
-            assert_eq!(currency_from_locales(locales), expected);
-        }
+        assert!(currency("ZZZ").is_err());
+        currency(DEFAULT_CURRENCY).unwrap();
+        let temp = Temp::new();
+        let storage = Storage::new(temp.0.clone()).unwrap();
+        let settings = storage.settings().unwrap();
+        assert_eq!(settings["defaultCurrency"], DEFAULT_CURRENCY);
+        assert_eq!(settings["currencies"], json!(CURRENCIES));
+        let created = storage.create_ledger(&json!({"name":"Manual","currency":"SGD"})).unwrap();
+        assert_eq!(created["ledger"]["currency"], "SGD");
+        assert_eq!(storage.settings().unwrap()["ledger"]["currency"], "SGD");
+        let created = storage.create_ledger(&json!({"name":"Fallback"})).unwrap();
+        assert_eq!(created["ledger"]["currency"], DEFAULT_CURRENCY);
     }
     #[test]
     fn singleton_profile_is_enforced_in_new_and_existing_registries() {
@@ -997,30 +768,6 @@ mod tests {
         assert_eq!(storage.settings().unwrap()["profile"], original);
         storage.update_profile(&json!({"username":"Updated","language":"ms-MY"})).unwrap();
         assert_eq!(storage.settings().unwrap()["profile"]["id"], original["id"]);
-    }
-    #[test]
-    fn monetary_environment_precedence_ignores_message_locale() {
-        for (variables, expected) in [
-            (vec![("LC_ALL", "en_SG"), ("LC_MONETARY", "de_DE"), ("LANG", "en_US")], "SGD"),
-            (
-                vec![("LC_MONETARY", "de_DE"), ("LC_MESSAGES", "en_US"), ("LANG", "zh_Hant_TW")],
-                "EUR",
-            ),
-            (vec![("LC_ALL", "C.UTF-8"), ("LC_MONETARY", "en_SG"), ("LANG", "en_US")], "SGD"),
-            (
-                vec![("LC_MONETARY", "POSIX"), ("LC_MESSAGES", "en_US"), ("LANG", "zh_Hant_TW")],
-                "TWD",
-            ),
-            (vec![("LC_MESSAGES", "en_SG")], "USD"),
-        ] {
-            let locales = monetary_locales(|key| {
-                variables
-                    .iter()
-                    .find(|(name, _)| *name == key)
-                    .map(|(_, value)| (*value).to_owned())
-            });
-            assert_eq!(currency_from_locales(locales.iter().map(String::as_str)), expected);
-        }
     }
     #[test]
     fn import_rejects_every_kind_of_category_customization() {
@@ -1150,7 +897,11 @@ mod tests {
         let profile = Uuid::new_v4().to_string();
         let c = Connection::open(source.0.join("finance.sqlite")).unwrap();
         c.execute_batch("DROP TABLE native_settings").unwrap();
-        c.execute("INSERT INTO local_profiles VALUES (?,'Electron profile','en-SG','SGD',1)", [&profile]).unwrap();
+        c.execute(
+            "INSERT INTO local_profiles VALUES (?,'Electron profile','en-SG','SGD',1)",
+            [&profile],
+        )
+        .unwrap();
         drop(c);
 
         let target = Temp::new();
@@ -1158,7 +909,14 @@ mod tests {
         let settings = storage.import_legacy(source.0.to_str().unwrap()).unwrap();
         assert_eq!(settings["profile"]["username"], "Electron profile");
         assert_eq!(settings["ledger"]["currency"], "SGD");
-        assert_eq!(storage.connection().unwrap().query_row("SELECT name FROM goals", [], |r| r.get::<_, String>(0)).unwrap(), "Legacy goal");
+        assert_eq!(
+            storage
+                .connection()
+                .unwrap()
+                .query_row("SELECT name FROM goals", [], |r| r.get::<_, String>(0))
+                .unwrap(),
+            "Legacy goal"
+        );
         let original = Connection::open(source.0.join("finance.sqlite")).unwrap();
         assert!(original.prepare("SELECT * FROM wallets").is_ok());
         assert!(original.prepare("SELECT * FROM native_settings").is_err());

@@ -120,7 +120,7 @@ export function SettingsForms({ settings }: { settings: SettingsData }) {
         <label>
           Currency
           <select name="currency" defaultValue={defaultCurrency}>
-            {currencyOptions(defaultCurrency).map((currency) => (
+            {currencyOptions(defaultCurrency, settings.currencies).map((currency) => (
               <option key={currency}>{currency}</option>
             ))}
           </select>

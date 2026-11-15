@@ -1,6 +1,6 @@
 export type Profile = { id: string; username: string; language: string };
 export type Ledger = { id: string; name: string; currency: string };
-export type SettingsData = { profile: Profile; ledger: Ledger; ledgers: Ledger[]; defaultCurrency: string; warning?: string };
+export type SettingsData = { profile: Profile; ledger: Ledger; ledgers: Ledger[]; defaultCurrency: string; currencies: string[]; warning?: string };
 export type Transaction = {
   id: string;
   kind: string;
@@ -20,6 +20,7 @@ export type Account = { id: string; name: string; opening: number; balance: numb
 export type ImportRow = { line: number; description: string; error?: string; duplicate: boolean; value?: Record<string, unknown> };
 export type ActionResult = { error?: string; warning?: string; message?: string; preview?: ImportRow[]; csv?: string };
 export type DashboardData = {
+  currencies: string[];
   profile: Profile;
   ledger: Ledger;
   ledgers: Ledger[];

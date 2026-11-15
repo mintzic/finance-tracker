@@ -19,7 +19,7 @@ A single profile contains username and language. A new installation creates an e
 
 ### Currency defaults
 
-Each ledger has its own currency, selected at creation. The default is inferred from OS regional settings (macOS AppleLocale or Windows culture; monetary locale environment settings as fallback). Unknown/unavailable regions default to **USD**. Detection is local: no GPS, network lookup, or location permission. Users can choose a different currency before creating a ledger. Existing ledger currencies are never changed when system settings change; renaming preserves currency. Amounts are not converted between currencies. Amount arithmetic retains the existing fixed two-decimal representation.
+Each ledger has its own currency, selected at creation. The default is **USD**, with no automatic location or OS regional-settings checks and no PowerShell subprocess. Edit the exported `CURRENCIES` list and `DEFAULT_CURRENCY` in `src-tauri/src/currencies.rs` to configure currencies manually, then rebuild the app. Keep the default currency in the list. Both dropdowns and backend validation use this list. Users can choose a different currency before creating a ledger. Existing ledger currencies are unchanged; renaming preserves currency. Amounts are not converted between currencies. Amount arithmetic retains the existing fixed two-decimal representation.
 
 ## Storage and naming
 

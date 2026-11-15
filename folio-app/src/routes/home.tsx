@@ -421,7 +421,7 @@ function HomeContent({
                 Back to overview
               </Link>
             </div>
-            <LedgerManager ledger={d.ledger} ledgers={d.ledgers} />
+            <LedgerManager ledger={d.ledger} ledgers={d.ledgers} currencies={d.currencies} />
           </main>
         ) : (
           <main className="content">

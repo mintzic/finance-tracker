@@ -122,7 +122,7 @@ pub fn dashboard(state: NativeState<'_>, params: Value) -> R<Value> {
     let storage = locked(&state)?;
     let mut result = read_dashboard(&mut storage.connection()?, &params)?;
     let settings = storage.settings()?;
-    for key in ["profile", "ledger", "ledgers"] {
+    for key in ["profile", "ledger", "ledgers", "currencies"] {
         result[key] = settings[key].clone();
     }
     Ok(result)

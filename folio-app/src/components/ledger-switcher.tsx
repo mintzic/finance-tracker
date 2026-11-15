@@ -92,7 +92,7 @@ export function LedgerSwitcher({ ledger, ledgers, manage }: { ledger: Ledger; le
   );
 }
 
-export function LedgerManager({ ledger, ledgers }: { ledger: Ledger; ledgers: Ledger[] }) {
+export function LedgerManager({ ledger, ledgers, currencies }: { ledger: Ledger; ledgers: Ledger[]; currencies: string[] }) {
   const [editor, setEditor] = useState<{ mode: 'create' | 'edit' | 'delete'; ledger?: Ledger } | null>(null);
   const fetcher = useFetcher<ActionResult>();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -217,7 +217,7 @@ export function LedgerManager({ ledger, ledgers }: { ledger: Ledger; ledgers: Le
                     <label>
                       Currency
                       <select name="currency" defaultValue={ledger.currency}>
-                        {currencyOptions(ledger.currency).map((currency) => (
+                        {currencyOptions(ledger.currency, currencies).map((currency) => (
                           <option key={currency}>{currency}</option>
                         ))}
                       </select>

@@ -21,6 +21,10 @@ A single profile contains username and language. A new installation creates an e
 
 Each ledger has its own currency, selected at creation. The default is **USD**, with no automatic location or OS regional-settings checks and no PowerShell subprocess. Edit the exported `CURRENCIES` list and `DEFAULT_CURRENCY` in `src-tauri/src/currencies.rs` to configure currencies manually, then rebuild the app. Keep the default currency in the list. Both dropdowns and backend validation use this list. Users can choose a different currency before creating a ledger. Existing ledger currencies are unchanged; renaming preserves currency. Amounts are not converted between currencies. Amount arithmetic retains the existing fixed two-decimal representation.
 
+## Reports
+
+Reports provide **Monthly** and **All time** tabs. Monthly reports follow the selected month and include six-month trends. All-time reports summarize the active ledger across all recorded dates (including future-dated entries), independent of the month picker, with yearly trends, category breakdowns, total goal allocations, and account balances. Transfers are excluded from income and expenses; allocations are tracked separately and are not additional expenses. Opening balances affect account balances, not net cash flow.
+
 ## Storage and naming
 
 Under Tauri's application-data directory for `com.mintzic.folio` (macOS: `~/Library/Application Support/com.mintzic.folio`):

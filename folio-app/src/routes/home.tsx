@@ -42,6 +42,8 @@ import { Preferences, useMoney, translate } from '@/lib/preferences';
 import { TransactionTable } from '@/components/transaction-table';
 import { Button } from '@/components/ui/button';
 import { LedgerCover } from '@/components/ledger-cover';
+import { MonthPicker } from '@/components/month-picker';
+import { Reports, ReportTabs } from '@/components/reports';
 import type { Transaction } from '@/lib/types';
 import catIcon from '@/assets/icon.png';
 import { LegacyImportSettings, ProfileSettings } from '@/components/user-settings';
@@ -82,6 +84,10 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Dashboard
   new URL(request.url).searchParams.forEach((value, key) => {
     params[key] = value;
   });
+
+  if (params.month && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month) || params.month < '1900-01' || params.month > '9998-12')) {
+    delete params.month;
+  }
 
   if (params.view === 'ledgers' || params.view === 'settings') {
     params.view = 'dashboard';
@@ -223,7 +229,7 @@ function HomeContent({
   const expenseCategories = d.categories.filter((c) => c.kind === 'expense').map((c) => c.name);
   const incomeCategories = d.categories.filter((c) => c.kind === 'income').map((c) => c.name);
   const isIncome = d.section === 'income';
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const settingsPage = params.get('view') === 'settings' || params.get('view') === 'import';
   const settingsSection = params.get('view') === 'import' ? 'import' : params.get('section') || 'profile';
   const [modal, setModal] = useState<Modal | null>(null),
@@ -428,10 +434,13 @@ function HomeContent({
             <div className="page-heading">
               <div>
                 <p className="eyebrow">YOUR MONEY, WITH INTENTION</p>
-                <h1>
-                  {d.section === 'dashboard' ? 'A clearer picture.' : title}
-                  {d.section === 'dashboard' && <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />}
-                </h1>
+                <div className={d.section === 'reports' ? 'report-title-row' : undefined}>
+                  <h1>
+                    {d.section === 'dashboard' ? 'A clearer picture.' : title}
+                    {d.section === 'dashboard' && <PawPrint className="heading-paw" size={23} strokeWidth={1.6} aria-hidden="true" />}
+                  </h1>
+                  {d.section === 'reports' && <ReportTabs />}
+                </div>
                 <p className="muted">
                   {d.section === 'dashboard'
                     ? 'A little overview of where you are, and where you’re going.'
@@ -447,21 +456,16 @@ function HomeContent({
                 </p>
               </div>
               <div className="heading-actions">
-                <Form method="get" className="month-form">
-                  <input type="hidden" name="view" value={d.section} />
-                  <input
-                    aria-label="Select month"
-                    type="month"
-                    name="month"
-                    min="1900-01"
-                    max="9998-12"
-                    value={d.month}
-                    onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                  />
-                  <noscript>
-                    <button>Apply</button>
-                  </noscript>
-                </Form>
+                <MonthPicker
+                  month={d.month}
+                  language={d.profile.language}
+                  onSelect={(month) => {
+                    const next = new URLSearchParams(params);
+                    next.set('month', month);
+                    next.delete('page');
+                    setParams(next);
+                  }}
+                />
                 <Button onClick={() => setModal({ type: 'transaction' })} className="primary">
                   <Plus size={16} />
                   Add transaction
@@ -905,57 +909,7 @@ function HomeContent({
                 )}
               </>
             )}
-            {d.section === 'reports' && (
-              <>
-                <div className="report-stats">
-                  <Stat label="Monthly income" value={money(d.sum.income)} />
-                  <Stat label="Monthly expenses" value={money(d.sum.expense)} />
-                  <Stat label="Monthly net cash flow" value={money(d.sum.income - d.sum.expense)} />
-                </div>
-                <div className="two-grid">
-                  <section className="panel">
-                    <div className="panel-heading">
-                      <h2>Income & expenses</h2>
-                      <span className="small muted">6 months to {d.month}</span>
-                    </div>
-                    <DeferredTrendChart data={d.trends} />
-                  </section>
-                  <section className="panel">
-                    <div className="panel-heading">
-                      <h2>Spending by category</h2>
-                    </div>
-                    <DeferredSpendingChart data={d.spending} total={d.sum.expense} />
-                  </section>
-                  <section className="panel">
-                    <div className="panel-heading">
-                      <h2>Goal allocation trends</h2>
-                    </div>
-                    <DeferredTrendChart data={d.trends} savings />
-                    <p className="chart-note">Amounts allocated to goals each month; not additional cash flow.</p>
-                  </section>
-                  <section className="panel">
-                    <div className="panel-heading">
-                      <h2>Account balances at month end</h2>
-                    </div>
-                    <div className="balance-list">
-                      {d.monthBalances.map((w) => (
-                        <div key={w.id}>
-                          <span>
-                            {w.name}
-                            {w.archived ? ' · Archived' : ''}
-                          </span>
-                          <strong>{money(w.balance)}</strong>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="chart-note">
-                      Opening balances plus records through {d.month} month end. A balance-only summary, excluding untracked assets and liabilities. Transfers
-                      are excluded from income and expenses.
-                    </p>
-                  </section>
-                </div>
-              </>
-            )}
+            {d.section === 'reports' && <Reports data={d} />}
             <footer className="content-footer">
               <span>
                 <span className="status-dot" />A little more clarity, every day.
@@ -987,14 +941,7 @@ function HomeContent({
     </div>
   );
 }
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="panel stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
+
 function Empty({ text }: { text: string }) {
   return (
     <div className="empty panel">
@@ -1038,17 +985,48 @@ function Budget({ budget: b }: { budget: { category: string; spent: number; amou
   );
 }
 function DeleteForm({ intent, id, label, buttonClassName = 'text-button negative' }: { intent: string; id: string; label: string; buttonClassName?: string }) {
+  const [confirming, setConfirming] = useState(false);
+  const [params] = useSearchParams();
+  const pending = useNavigation().state !== 'idle';
+  const submitted = useRef(false);
+
+  useEffect(() => {
+    if (!pending) {
+      submitted.current = false;
+    }
+  }, [pending]);
+
   return (
     <Form
       method="post"
-      onSubmit={(e) => {
-        if (!confirm(`${label}? This updates your records immediately.`)) {
-          e.preventDefault();
+      action={`/?${params}`}
+      onSubmit={(event) => {
+        if (!confirming || pending || submitted.current) {
+          event.preventDefault();
+          return;
         }
+
+        submitted.current = true;
       }}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="id" value={id} />
-      <button className={buttonClassName}>{label}</button>
+      {confirming ? (
+        <div>
+          <p role="status">{label}? This updates your records immediately.</p>
+          <div className="editor-actions">
+            <button type="button" className="secondary" disabled={pending} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={pending}>
+              {pending ? 'Removing…' : `Confirm: ${label}`}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className={buttonClassName} disabled={pending} onClick={() => setConfirming(true)}>
+          {label}
+        </button>
+      )}
     </Form>
   );
 }

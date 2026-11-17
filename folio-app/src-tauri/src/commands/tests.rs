@@ -159,6 +159,25 @@ fn transfers_edit_delete_and_summary() {
     assert_eq!(balances(&c, "9999-12-31").unwrap()[0]["balance"], 10000);
 }
 #[test]
+fn deleting_previous_month_transaction_preserves_other_months() {
+    let mut c = db();
+    let mut form = transaction_form();
+    form["date"] = json!("2024-02-29");
+    mutate(&mut c, &form).unwrap();
+    let previous_id = id(&c, "transactions");
+    form["date"] = json!("2024-03-01");
+    mutate(&mut c, &form).unwrap();
+    let previous = dashboard(&mut c, &json!({"month":"2024-02"})).unwrap();
+    assert_eq!(previous["sum"]["expense"], 550);
+    mutate(&mut c, &json!({"intent":"delete_transaction","id":previous_id})).unwrap();
+    let previous = dashboard(&mut c, &json!({"month":"2024-02"})).unwrap();
+    assert_eq!(previous["month"], "2024-02");
+    assert_eq!(previous["sum"]["expense"], 0);
+    let next = dashboard(&mut c, &json!({"month":"2024-03"})).unwrap();
+    assert_eq!(next["sum"]["expense"], 550);
+    assert_eq!(count(&c, "transactions"), 1);
+}
+#[test]
 fn invalid_transactions_are_atomic() {
     let mut c = db();
     for patch in [
@@ -203,6 +222,72 @@ fn month_boundaries_and_allocations() {
     assert_eq!(d["trends"].as_array().unwrap().len(), 6);
     assert!(d.get("edit").is_none());
 }
+#[test]
+fn reports_all_time_across_recorded_years() {
+    let mut c = db();
+    for (kind, date, amount) in [
+        ("income", "2024-01-01", "100"),
+        ("expense", "2024-02-29", "5.50"),
+        ("expense", "2024-03-01", "10"),
+        ("income", "2025-06-01", "200"),
+        ("transfer", "2027-01-01", "30"),
+        ("expense", "2090-12-01", "20"),
+    ] {
+        let mut f = transaction_form();
+        f["kind"] = json!(kind);
+        f["date"] = json!(date);
+        f["amount"] = json!(amount);
+        if kind == "income" {
+            f["category"] = json!("Salary");
+        }
+        if kind == "transfer" {
+            f["destination_account_id"] = json!("b");
+        }
+        mutate(&mut c, &f).unwrap();
+    }
+    c.execute_batch("INSERT INTO goals VALUES ('g','Trip',100000,'2099-01-01'); INSERT INTO contributions VALUES ('x','g',5000,'2023-01-01'),('y','g',2000,'2024-03-01'),('z','g',3000,'2091-01-01')").unwrap();
+    let expected = json!({
+        "sum":{"income":30000,"expense":3550},
+        "spending":[{"category":"Food & dining","amount":3550}],
+        "incomeByCategory":[{"category":"Salary","amount":30000}],
+        "allocationTotal":10000,"transactionCount":6,
+        "firstDate":"2023-01-01","lastDate":"2091-01-01",
+        "trends":[
+            {"month":"2023","income":0,"expense":0,"savings":5000},
+            {"month":"2024","income":10000,"expense":1550,"savings":2000},
+            {"month":"2025","income":20000,"expense":0,"savings":0},
+            {"month":"2027","income":0,"expense":0,"savings":0},
+            {"month":"2090","income":0,"expense":2000,"savings":0},
+            {"month":"2091","income":0,"expense":0,"savings":3000}
+        ]
+    });
+    for (month, expense, savings) in [("2024-02", 550, 0), ("2024-03", 1000, 2000)] {
+        let d = dashboard(&mut c, &json!({"view":"reports","month":month})).unwrap();
+        assert_eq!(d["allTime"], expected);
+        assert_eq!(d["sum"], json!({"income":0,"expense":expense}));
+        assert_eq!(d["spending"], json!([{"category":"Food & dining","amount":expense}]));
+        assert_eq!(d["count"], 1);
+        assert_eq!(d["trends"].as_array().unwrap().len(), 6);
+        assert_eq!(d["trends"][5], json!({"month":month,"income":0,"expense":expense,"savings":savings}));
+    }
+    for view in ["dashboard", "accounts", "income", "expenses", "transfers", "budgets", "subscriptions", "goals", "import"] {
+        let d = dashboard(&mut c, &json!({"view":view,"month":"2024-02"})).unwrap();
+        assert!(d.get("allTime").is_none(), "{view}");
+    }
+}
+
+#[test]
+fn reports_all_time_empty_ledger() {
+    let mut c = db();
+    let d = dashboard(&mut c, &json!({"view":"reports","month":"2024-02"})).unwrap();
+    assert_eq!(d["allTime"], json!({
+        "sum":{"income":0,"expense":0},"spending":[],"incomeByCategory":[],
+        "allocationTotal":0,"transactionCount":0,"firstDate":null,"lastDate":null,"trends":[]
+    }));
+    assert_eq!(d["sum"], json!({"income":0,"expense":0}));
+    assert_eq!(d["trends"].as_array().unwrap().len(), 6);
+}
+
 #[test]
 fn budget_series_and_override() {
     let mut c = db();

@@ -28,6 +28,16 @@ export type DashboardData = {
   section: string;
   categories: { id: string; kind: string; name: string }[];
   cover: { version: string; position: number } | null;
+  allTime?: {
+    sum: { income: number; expense: number };
+    spending: { category: string; amount: number }[];
+    incomeByCategory: { category: string; amount: number }[];
+    allocationTotal: number;
+    transactionCount: number;
+    firstDate: string | null;
+    lastDate: string | null;
+    trends: { month: string; income: number; expense: number; savings: number }[];
+  };
   sum: { income: number; expense: number };
   spending: { category: string; amount: number }[];
   incomeByCategory: { category: string; amount: number }[];

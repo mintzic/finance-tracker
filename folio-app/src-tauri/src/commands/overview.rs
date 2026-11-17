@@ -107,6 +107,38 @@ fn load(c: &Connection, p: &Value) -> R<Value> {
         "trends":trends,"transactions":transactions,"count":count,"page":page,"q":q,"account":account,"category":cat,"sort":sort,"dir":dir.to_lowercase(),
         "recentExpenses":recent("expense")?,"recentIncome":recent("income")?,"recentTransfers":recent("transfer")?
     });
+    if section == "reports" {
+        let grouped_all = |kind: &str| {
+            query(
+                c,
+                "SELECT category,SUM(amount) amount FROM transactions WHERE kind=? GROUP BY category ORDER BY amount DESC",
+                [kind],
+            )
+        };
+        let totals = one(
+            c,
+            "SELECT COALESCE(SUM(CASE WHEN kind='income' THEN amount ELSE 0 END),0) income,COALESCE(SUM(CASE WHEN kind='expense' THEN amount ELSE 0 END),0) expense,COUNT(*) transactionCount FROM transactions",
+            [],
+        )?;
+        let dates = one(
+            c,
+            "SELECT MIN(date) firstDate,MAX(date) lastDate FROM (SELECT date FROM transactions UNION ALL SELECT date FROM contributions)",
+            [],
+        )?;
+        result["allTime"] = json!({
+            "sum":{"income":totals["income"],"expense":totals["expense"]},
+            "spending":grouped_all("expense")?,
+            "incomeByCategory":grouped_all("income")?,
+            "allocationTotal":one(c,"SELECT COALESCE(SUM(amount),0) total FROM contributions",[])?["total"],
+            "transactionCount":totals["transactionCount"],
+            "firstDate":dates["firstDate"],"lastDate":dates["lastDate"],
+            "trends":query(
+                c,
+                "WITH activity AS (SELECT substr(date,1,4) month,CASE WHEN kind='income' THEN amount ELSE 0 END income,CASE WHEN kind='expense' THEN amount ELSE 0 END expense,0 savings FROM transactions UNION ALL SELECT substr(date,1,4),0,0,amount FROM contributions) SELECT month,SUM(income) income,SUM(expense) expense,SUM(savings) savings FROM activity GROUP BY month ORDER BY month",
+                [],
+            )?
+        });
+    }
     // JSON.stringify omits the legacy undefined edit property.
     if !field(p, "edit").is_empty() {
         let edit = one(c, "SELECT * FROM transactions WHERE id=?", [field(p, "edit")])?;

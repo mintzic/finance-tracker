@@ -46,11 +46,13 @@ export function SpendingChart({
   data,
   total,
   income = false,
+  periodLabel = 'This month',
   appearanceKey,
 }: {
   data: { category: string; amount: number }[];
   total: number;
   income?: boolean;
+  periodLabel?: string;
   appearanceKey?: string;
 }) {
   const scope = appearanceKey ?? (income ? 'Income donut' : 'Spending donut');
@@ -113,7 +115,7 @@ export function SpendingChart({
             <div className="donut-empty-ring" style={{ borderWidth: Number(settings.thickness), marginTop: (height - 188) / 2 }} aria-hidden="true" />
           )}
           <div className="donut-label" style={{ width: (94 - Number(settings.thickness)) * 2 - 16, maxWidth: 'calc(100% - 24px)', margin: 'auto' }}>
-            <small>THIS MONTH</small>
+            <small>{periodLabel.toUpperCase()}</small>
             <DonutAmount value={money(total)} />
             <span>{income ? 'total income' : 'total spending'}</span>
           </div>
@@ -133,8 +135,8 @@ export function SpendingChart({
             ) : (
               <p className="muted">
                 {income
-                  ? 'No income recorded this month. Your income breakdown will appear after you add one.'
-                  : 'No expenses recorded this month. Your spending breakdown will appear after you add one.'}
+                  ? `No income recorded (${periodLabel.toLowerCase()}). Your income breakdown will appear after you add one.`
+                  : `No expenses recorded (${periodLabel.toLowerCase()}). Your spending breakdown will appear after you add one.`}
               </p>
             )}
           </div>
@@ -148,11 +150,13 @@ export function TrendChart({
   data,
   savings = false,
   series,
+  periodLabel = 'this six-month period',
   appearanceKey,
 }: {
   data: { month: string; income: number; expense: number; savings: number }[];
   savings?: boolean;
   series?: 'income' | 'expense';
+  periodLabel?: string;
   appearanceKey?: string;
 }) {
   const scope = appearanceKey ?? (savings ? 'Savings trend' : series ? `${series === 'income' ? 'Income' : 'Expense'} trend` : 'Combined cash flow trend');
@@ -181,10 +185,10 @@ export function TrendChart({
           </strong>
           <p>
             {savings
-              ? 'Add a contribution to a savings goal to see its trend over these six months.'
+              ? `Add a contribution to a savings goal to see its trend over ${periodLabel}.`
               : series
-                ? `Record ${series === 'income' ? 'income' : 'an expense'} in this six-month period to see the trend.`
-                : 'Record income or an expense in this six-month period to see your cash flow.'}
+                ? `Record ${series === 'income' ? 'income' : 'an expense'} in ${periodLabel} to see the trend.`
+                : `Record income or an expense in ${periodLabel} to see your cash flow.`}
           </p>
         </div>
       </div>
@@ -241,7 +245,9 @@ export function TrendChart({
           )}
         </ResponsiveContainer>
         {!savings && !series && (!hasIncome || !hasExpenses) && (
-          <p className="chart-series-note">No {hasIncome ? 'expenses' : 'income'} recorded in this six-month period.</p>
+          <p className="chart-series-note">
+            No {hasIncome ? 'expenses' : 'income'} recorded in {periodLabel}.
+          </p>
         )}
       </div>
     </div>
